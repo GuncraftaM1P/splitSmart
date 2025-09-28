@@ -1,0 +1,28 @@
+name: Formatting & Linting DEV
+
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+jobs:
+  prettier:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prettify code
+        uses: creyD/prettier_action@v4.6
+        with:
+          prettier_options: --write
+      
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v6
+        with:
+          commit_message: "chore: format code with Prettier"
+          branch: ${{ github.head_ref }}
