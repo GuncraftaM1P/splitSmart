@@ -7,7 +7,45 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Link } from 'expo-router';
 
+import React, { useEffect, useState } from 'react';
+import { View, Text } from 'react-native';
+
+
+
 export default function HomeScreen() {
+  interface GroupExpense {
+    id: number;
+    description: string;
+    paidFor: string[];
+    paidBy: string;
+  }
+  interface GroupInfo {
+    name: string;
+    description: string;
+    members: string[];
+    expenses: GroupExpense[];
+  }
+
+
+  const [data, setData]: [GroupInfo, any] = useState<any>(null);
+  useEffect(() => {
+    try{
+      (async () => {
+        const resp = await fetch('http://localhost:8787/groups/1234/info', {
+          method: 'GET',
+          
+        });
+        const json = await resp.json() as GroupInfo;
+        
+        setData(json);
+      })();
+    }
+    catch (error) {
+      setData("");
+      console.error('Error fetching data:', error); 
+    }
+  }, []);
+
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
@@ -19,8 +57,7 @@ export default function HomeScreen() {
       }
     >
       <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
+        <ThemedText type="title">{data ? JSON.stringify(data.description) : 'Loading...'} </ThemedText>
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">Step 1: Try it</ThemedText>
