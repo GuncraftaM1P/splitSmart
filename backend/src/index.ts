@@ -12,7 +12,7 @@
  */
 
 export default {
-	async fetch(request, env, ctx): Promise<Response> {
-		return new Response('Hello World! We are splitSmart!');
-	},
+  async fetch(request, env, ctx): Promise<Response> {
+    return new Response('Hello World! We are splitSmart!');
+  },
 } satisfies ExportedHandler<Env>;
