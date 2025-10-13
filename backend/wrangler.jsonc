@@ -12,12 +12,11 @@
   },
   "d1_databases": [
     {
-      "binding": "split_smart",
+      "binding": "prod_db",
       "database_name": "split_smart",
       "database_id": "e5873244-f3a1-49fc-93d8-ad6d508ea351",
     },
   ],
-
   /**
    * Smart Placement
    * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
