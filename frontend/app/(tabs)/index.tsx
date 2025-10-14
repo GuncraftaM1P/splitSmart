@@ -9,8 +9,6 @@ import { Link } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { View, Text } from 'react-native';
 
-
-
 export default function HomeScreen() {
   interface GroupExpense {
     id: number;
@@ -25,23 +23,20 @@ export default function HomeScreen() {
     expenses: GroupExpense[];
   }
 
-
   const [data, setData]: [GroupInfo, any] = useState<any>(null);
   useEffect(() => {
-    try{
+    try {
       (async () => {
         const resp = await fetch('http://localhost:8787/groups/1234/info', {
           method: 'GET',
-          
         });
-        const json = await resp.json() as GroupInfo;
-        
+        const json = (await resp.json()) as GroupInfo;
+
         setData(json);
       })();
-    }
-    catch (error) {
-      setData("");
-      console.error('Error fetching data:', error); 
+    } catch (error) {
+      setData('');
+      console.error('Error fetching data:', error);
     }
   }, []);
 
@@ -56,16 +51,26 @@ export default function HomeScreen() {
       }
     >
       <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">{data ? JSON.stringify(data.name) : 'Loading goup name...'} </ThemedText>
+        <ThemedText type="title">
+          {data ? JSON.stringify(data.name) : 'Loading goup name...'}{' '}
+        </ThemedText>
       </ThemedView>
       <ThemedView style={styles.titleContainer}>
-        <ThemedText type="subtitle">{data ? JSON.stringify(data.description) : 'Loading description...'} </ThemedText>
+        <ThemedText type="subtitle">
+          {data
+            ? JSON.stringify(data.description)
+            : 'Loading description...'}{' '}
+        </ThemedText>
       </ThemedView>
       <ThemedView style={styles.titleContainer}>
-        <ThemedText type="default">{data ? JSON.stringify(data.members) : 'Loading members...'} </ThemedText>
+        <ThemedText type="default">
+          {data ? JSON.stringify(data.members) : 'Loading members...'}{' '}
+        </ThemedText>
       </ThemedView>
       <ThemedView style={styles.titleContainer}>
-        <ThemedText type="default">{data ? JSON.stringify(data.expenses) : 'Loading expenses...'} </ThemedText>
+        <ThemedText type="default">
+          {data ? JSON.stringify(data.expenses) : 'Loading expenses...'}{' '}
+        </ThemedText>
       </ThemedView>
     </ParallaxScrollView>
   );
