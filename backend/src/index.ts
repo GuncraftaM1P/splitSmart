@@ -1,18 +1,31 @@
-/**
- * Welcome to Cloudflare Workers! This is your first worker.
- *
- * - Run `npm run dev` in your terminal to start a development server
- * - Open a browser tab at http://localhost:8787/ to see your worker in action
- * - Run `npm run deploy` to publish your worker
- *
- * Bind resources to your worker in `wrangler.jsonc`. After adding bindings, a type definition for the
- * `Env` object can be regenerated with `npm run cf-typegen`.
- *
- * Learn more at https://developers.cloudflare.com/workers/
- */
+import { handleGetInfo, handlePostCreate } from './routes/groups.js';
 
 export default {
   async fetch(request, env, ctx): Promise<Response> {
-    return new Response('Hello World! We are splitSmart!');
+    console.log('Request received:', request.method, request.url);
+
+    if (request.url.split('/')[3] === "groups"){
+      const groupId = request.url.split('/')[4];
+      var illegal: boolean = routes[`${request.method}:/groups/${request.url.split('/')[5]}`] == undefined;
+
+      if (illegal) {
+        return new Response('403 Forbidden', { status: 403 });
+      }
+      return routes[`${request.method}:/groups/${request.url.split('/')[5]}`](request, env, groupId);
+    }
+    
+    return new Response('404 Not Found', { status: 404 });
   },
 } satisfies ExportedHandler<Env>;
+
+const routes: Record<
+  string,
+  (
+    request: Request,
+    env: Env,
+    groupId: string
+  ) => Promise<Response>
+> = {
+  'GET:/groups/info': handleGetInfo,
+  'POST:/groups/create': handlePostCreate,
+};
