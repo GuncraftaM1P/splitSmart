@@ -1,4 +1,4 @@
-name: Formatting & Linting DEV
+name: Formatting DEV
 
 on:
   push:

@@ -1,0 +1,28 @@
+{
+    "name": "split_smart-frontend",
+    "compatibility_date": "2025-10-14",
+    "assets": {
+        "directory": "./dist"
+    },
+    "workers_dev": false,
+    "env": {
+        "production": {
+            "name": "split_smart-frontend",
+            "routes": [
+                {
+                    "pattern": "splitsmart.de",
+                    "custom_domain": true
+                }
+            ]
+        },
+        "dev": {
+            "name": "split_smart-frontend-dev",
+            "routes": [
+                {
+                    "pattern": "dev.splitsmart.de",
+                    "custom_domain": true
+                }
+            ]
+        }
+    }
+}
