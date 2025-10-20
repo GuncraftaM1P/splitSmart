@@ -1,44 +1,57 @@
+import { drizzle } from 'drizzle-orm/d1';
+import { eq } from 'drizzle-orm';
+import { groupsTable } from '../db/schema';
+
+import { validate, version } from "uuid";
+
 export async function handleGetInfo(
   request: Request,
   env: Env,
   groupId: string,
 ): Promise<Response> {
-  return new Response(
-    JSON.stringify({
-      name: 'Super coole standard Gruppe!',
-      description: 'Das ist eine super coole Gruppe, die jeder kennen sollte.',
-      members: ['Alice', 'Bob', 'Charlie'],
-      expenses: [
-        {
-          id: 1,
-          description: 'Pizza',
-          amount: 30,
-          paidBy: 'Alice',
-          paidFor: ['Alice', 'Bob'],
-        },
-        {
-          id: 2,
-          description: 'Bier',
-          amount: 20,
-          paidBy: 'Bob',
-          paidFor: ['Alice', 'Charlie'],
-        },
-      ],
-    }),
-    {
-      status: 200,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-      },
+  const db = drizzle(env.prod_db);
+  const result = await db.select().from(groupsTable).where(eq(groupsTable.id, groupId)).limit(1);
+
+  if (result.length == 0) {
+    return new Response('Group not found', { status: 404 });
+  }
+
+  return new Response(JSON.stringify(result[0]), {
+    status: 200,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
     },
-  );
+  });
 }
+
 
 export async function handlePostCreate(
   request: Request,
   env: Env,
   groupId: string,
 ): Promise<Response> {
-  return new Response(`I created the group with id: ${groupId}`);
+  if (!validate(groupId) || version(groupId) !== 4) {
+    return new Response("Invalid UUID v4", { status: 400 });
+  }
+
+  const db = drizzle(env.prod_db);
+
+  const existing = await db.select().from(groupsTable).where(eq(groupsTable.id, groupId)).get();
+  if (existing) {
+    return new Response("Group already exists", { status: 409 });
+  }
+
+  await db.insert(groupsTable).values({ id: groupId, name: groupId });
+
+  return new Response(`Created group with id: ${groupId}`, { status: 201 });
+}
+
+export async function handlePatchUpdate(
+  request: Request,
+  env: Env,
+  groupId: string,
+): Promise<Response> {
+  // Implementation for updating group details would go here
+  return new Response('Not Implemented', { status: 501 });
 }
