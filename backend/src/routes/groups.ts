@@ -10,7 +10,7 @@ export async function handleGetInfo(
   groupId: string,
 ): Promise<Response> {
   const db = drizzle(env.prod_db);
-  const result = await db.select().from(groupsTable).where(eq(groupsTable.id, groupId)).limit(1);
+  const result = await db.select().from(groupsTable).where(eq(groupsTable.id, groupId));
 
   if (result.length == 0) {
     return new Response('Group not found', { status: 404 });

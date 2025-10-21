@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build": "NODE_ENV=production npx drizzle-kit pull && npx tsc",
-    "start": "wrangler dev"
+    "start": "wrangler dev -e dev"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.8.71",
