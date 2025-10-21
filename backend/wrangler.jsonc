@@ -10,14 +10,43 @@
   "observability": {
     "enabled": true,
   },
-  "d1_databases": [
-    {
-      "binding": "split_smart",
-      "database_name": "split_smart",
-      "database_id": "e5873244-f3a1-49fc-93d8-ad6d508ea351",
+  "workers_dev": false,
+  "env": {
+    "production": {
+      "name": "split_smart-backend",
+      "routes": [
+        {
+          "pattern": "splitsmart.de/api/*",
+          "zone_name": "splitsmart.de"
+        },
+      ],
+      "d1_databases": [
+        {
+          "binding": "prod_db",
+          "database_name": "split_smart",
+          "database_id": "e5873244-f3a1-49fc-93d8-ad6d508ea351",
+          "migrations_dir": "drizzle",
+        },
+      ],
     },
-  ],
-
+    "dev": {
+      "name": "split_smart-backend-dev",
+      "routes": [
+        {
+          "pattern": "dev.splitsmart.de/api/*",
+          "zone_name": "splitsmart.de"
+        },
+      ],
+      "d1_databases": [
+        {
+          "binding": "prod_db",
+          "database_name": "split_smart",
+          "database_id": "e5873244-f3a1-49fc-93d8-ad6d508ea351",
+          "migrations_dir": "drizzle",
+        },
+      ],
+    },
+  },
   /**
    * Smart Placement
    * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
