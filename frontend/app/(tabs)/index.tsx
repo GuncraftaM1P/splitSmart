@@ -72,7 +72,9 @@ export default function HomeScreen() {
       </ThemedView>
       <ThemedView style={styles.titleContainer}>
         <ThemedText type="subtitle">
-          {data ? JSON.stringify(data.description) : 'Loading description...'}{' '}
+          {data
+            ? JSON.stringify(data.description)
+            : 'Loading description...'}{' '}
         </ThemedText>
       </ThemedView>
       <ThemedView style={styles.titleContainer}>
