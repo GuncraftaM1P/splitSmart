@@ -26,6 +26,31 @@ export async function handleGetInfo(
   });
 }
 
+const adjectives = [
+  'Brave',
+  'Clever',
+  'Swift',
+  'Gentle',
+  'Fierce',
+  'Quiet',
+  'Loyal',
+  'Wild',
+  'Curious',
+  'Bold',
+];
+const animals = [
+  'Lion',
+  'Fox',
+  'Eagle',
+  'Wolf',
+  'Bear',
+  'Tiger',
+  'Owl',
+  'Rabbit',
+  'Dolphin',
+  'Panda',
+];
+
 export async function handlePostCreate(
   request: Request,
   env: Env,
@@ -46,7 +71,13 @@ export async function handlePostCreate(
     return new Response('Group already exists', { status: 409 });
   }
 
-  await db.insert(groupsTable).values({ id: groupId, name: groupId });
+  await db.insert(groupsTable).values({
+    id: groupId,
+    name:
+      adjectives[Math.floor(Math.random() * adjectives.length)] +
+      ' ' +
+      animals[Math.floor(Math.random() * animals.length)],
+  });
 
   return new Response(`Created group with id: ${groupId}`, { status: 201 });
 }
