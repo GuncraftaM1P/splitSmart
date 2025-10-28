@@ -1,0 +1,139 @@
+{
+    "openapi": "3.0.3",
+    "info": {
+        "title": "SplitSmart API",
+        "version": "0.0.0",
+        "description": "API for managing expense splitting groups",
+        "license": {
+            "name": "AGPL-3.0",
+            "url": "https://www.gnu.org/licenses/agpl-3.0.html"
+        }
+    },
+    "servers": [
+        {
+            "url": "/api",
+            "description": "API Server"
+        }
+    ],
+    "tags": [
+        {
+            "name": "Groups",
+            "description": "Group management operations"
+        }
+    ],
+    "paths": {
+        "/groups/{groupId}/info": {
+            "get": {
+                "tags": [
+                    "Groups"
+                ],
+                "summary": "Get group information",
+                "description": "Retrieves information about a specific group",
+                "parameters": [
+                    {
+                        "name": "groupId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "description": "UUID of the group"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Group information",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {
+                                        "id": {
+                                            "type": "string",
+                                            "format": "uuid"
+                                        },
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "description": {
+                                            "type": "string",
+                                            "nullable": true
+                                        },
+                                        "members": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "expenses": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "description": {
+                                                        "type": "string"
+                                                    },
+                                                    "amount": {
+                                                        "type": "number"
+                                                    },
+                                                    "paidBy": {
+                                                        "type": "string"
+                                                    },
+                                                    "paidFor": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Group not found"
+                    }
+                }
+            }
+        },
+        "/groups/{groupId}/create": {
+            "post": {
+                "tags": [
+                    "Groups"
+                ],
+                "summary": "Create a new group",
+                "description": "Creates a new group with the specified UUID v4",
+                "parameters": [
+                    {
+                        "name": "groupId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        },
+                        "description": "UUID v4 for the new group"
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Group created successfully"
+                    },
+                    "400": {
+                        "description": "Invalid UUID v4"
+                    },
+                    "409": {
+                        "description": "Group already exists"
+                    }
+                }
+            }
+        }
+    }
+}
