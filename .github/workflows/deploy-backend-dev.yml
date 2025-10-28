@@ -2,7 +2,7 @@ name: Deploy Backend to Dev
 
 on:
   push:
-    branches: [ dev ]
+    branches: [dev]
 
 jobs:
   deploy:
@@ -10,6 +10,9 @@ jobs:
     defaults:
       run:
         working-directory: backend
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: 1a27efaacb5e2b77fcaec04e0f6b0a0b
 
     steps:
       - name: Checkout repo
@@ -28,6 +31,3 @@ jobs:
 
       - name: Deploy to Cloudflare (dev)
         run: npx wrangler deploy -e dev
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
