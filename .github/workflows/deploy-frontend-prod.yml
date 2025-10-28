@@ -2,7 +2,7 @@ name: Deploy Frontend to Prod
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   deploy:
@@ -10,6 +10,9 @@ jobs:
     defaults:
       run:
         working-directory: frontend
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: 1a27efaacb5e2b77fcaec04e0f6b0a0b
 
     steps:
       - name: Checkout repo
@@ -28,6 +31,3 @@ jobs:
 
       - name: Deploy to Cloudflare (prod)
         run: npx wrangler deploy -e production
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
