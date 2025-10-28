@@ -1,7 +1,6 @@
 import { handleGetInfo, handlePostCreate } from './routes/groups.js';
 import openapi from './openapi.json';
 
-
 export default {
   async fetch(request, env, ctx): Promise<Response> {
     const url = new URL(request.url);
@@ -55,7 +54,7 @@ export default {
     }
 
     // Handle group routes
-    const pathParts = pathname.split('/').filter(part => part !== '');
+    const pathParts = pathname.split('/').filter((part) => part !== '');
     const groupsIndex = pathParts.indexOf('groups');
 
     if (groupsIndex !== -1 && pathParts.length >= groupsIndex + 2) {
