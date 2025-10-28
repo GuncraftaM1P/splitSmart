@@ -1,0 +1,37 @@
+# GitHub and Git files
+Github:
+  - changed-files:
+      - any-glob-to-any-file: '.github/**/*'
+      - any-glob-to-any-file: '.gitignore'
+      - any-glob-to-any-file: '.gitattributes'
+      - any-glob-to-any-file: '.git*'
+
+# Backend files
+Backend:
+  - changed-files:
+      - any-glob-to-any-file: 'backend/**/*'
+
+# Frontend files
+Frontend:
+  - changed-files:
+      - any-glob-to-any-file: 'frontend/**/*'
+
+# Cloudflare related files
+Cloudflare:
+  - changed-files:
+      - any-glob-to-any-file: '**/wrangler.jsonc'
+      - any-glob-to-any-file: '**/wrangler.json'
+      - any-glob-to-any-file: '**/wrangler.toml'
+      - any-glob-to-any-file: '**/worker-configuration.d.ts'
+
+# Formatting and code style
+Formatting:
+  - changed-files:
+      - any-glob-to-any-file: '**/.prettierrc*'
+      - any-glob-to-any-file: '**/prettier.config.*'
+      - any-glob-to-any-file: '**/.prettierignore'
+      - any-glob-to-any-file: '**/tsconfig.json'
+      - any-glob-to-any-file: '**/tsconfig.*.json'
+      - any-glob-to-any-file: '**/eslint.config.*'
+      - any-glob-to-any-file: '**/.eslintrc*'
+      - any-glob-to-any-file: '**/.eslintignore'

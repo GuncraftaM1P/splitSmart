@@ -1,0 +1,24 @@
+{
+  "name": "backend",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "NODE_ENV=production npx drizzle-kit pull && npx tsc",
+    "start": "wrangler dev -e dev"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.8.71",
+    "@types/node": "^24.8.1",
+    "better-sqlite3": "^12.4.1",
+    "drizzle-kit": "^0.31.5",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "vitest": "~3.2.0",
+    "wrangler": "^4.43.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "drizzle-orm": "^0.44.6",
+    "uuid": "^13.0.0"
+  }
+}
