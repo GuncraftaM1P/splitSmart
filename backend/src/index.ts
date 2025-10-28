@@ -1,8 +1,20 @@
 import { handleGetInfo, handlePostCreate } from './routes/groups.js';
 import openapi from './openapi.json';
 
+export const corsHeaders = {
+  'Access-Control-Allow-Headers': '*', // What headers are allowed. * is wildcard. Instead of using '*', you can specify a list of specific headers that are allowed, such as: Access-Control-Allow-Headers: X-Requested-With, Content-Type, Accept, Authorization.
+  'Access-Control-Allow-Methods': '*', // Allowed methods. Others could be GET, PUT, DELETE etc.
+  'Access-Control-Allow-Origin': '*', // This is URLs that are allowed to access the server. * is the wildcard character meaning any URL can.
+};
+
 export default {
   async fetch(request, env, ctx): Promise<Response> {
+    if (request.method === 'OPTIONS') {
+      return new Response('OK', {
+        headers: corsHeaders,
+      });
+    }
+
     const url = new URL(request.url);
 
     // Remove /api prefix if present to match our route definitions
@@ -67,7 +79,18 @@ export default {
       if (illegal) {
         return new Response('403 Forbidden', { status: 403 });
       }
-      return routes[routeKey](request, env, groupId);
+
+      const res = await routes[routeKey](request, env, groupId);
+      return new Response(res.body, {
+        status: res.status,
+        statusText: res.statusText,
+        headers: {
+          ...Object.fromEntries(res.headers),
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': '*',
+        },
+      });
     }
 
     return new Response('404 Not Found', { status: 404 });

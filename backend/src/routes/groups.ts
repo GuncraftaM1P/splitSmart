@@ -16,15 +16,13 @@ export async function handleGetInfo(
     .where(eq(groupsTable.id, groupId));
 
   if (result.length == 0) {
-    return new Response('Group not found', { status: 404 });
+    return new Response('Group not found', {
+      status: 404,
+    });
   }
 
   return new Response(JSON.stringify(result[0]), {
     status: 200,
-    headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-    },
   });
 }
 

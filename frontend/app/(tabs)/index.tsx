@@ -23,13 +23,28 @@ export default function HomeScreen() {
     expenses: GroupExpense[];
   }
 
+  const backendURL = window.location.origin.replace(':8081', ':8787') + '/api/';
+
   const [data, setData]: [GroupInfo, any] = useState<any>(null);
   useEffect(() => {
     try {
       (async () => {
-        const resp = await fetch('http://localhost:8787/groups/1234/info', {
-          method: 'GET',
-        });
+        const resp = await fetch(
+          backendURL + 'groups/ec07c9fe-5124-4fd3-b020-55fa0d6685a1/info',
+          {
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          },
+        );
+
+        // Everything alright?
+        if (!resp.ok) {
+          setData('NOT FOUND');
+          return;
+        }
+
         const json = (await resp.json()) as GroupInfo;
 
         setData(json);
@@ -57,9 +72,7 @@ export default function HomeScreen() {
       </ThemedView>
       <ThemedView style={styles.titleContainer}>
         <ThemedText type="subtitle">
-          {data
-            ? JSON.stringify(data.description)
-            : 'Loading description...'}{' '}
+          {data ? JSON.stringify(data.description) : 'Loading description...'}{' '}
         </ThemedText>
       </ThemedView>
       <ThemedView style={styles.titleContainer}>
