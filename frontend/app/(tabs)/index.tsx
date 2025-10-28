@@ -30,7 +30,7 @@ export default function HomeScreen() {
     try {
       (async () => {
         const resp = await fetch(
-          backendURL + 'groups/ec07c9fe-5124-4fd3-b020-55fa0d6685a1/info',
+          backendURL + 'groups/ec07c9fe-5124-4fd3-b040-55fa0d6685a1/info',
           {
             method: 'GET',
             headers: {
