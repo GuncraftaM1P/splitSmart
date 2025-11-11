@@ -1,4 +1,5 @@
 import { handleGetInfo, handlePostCreate } from './routes/groups.js';
+import { handlePatchUpdate } from './routes/expenses.js';
 import openapi from './openapi.json';
 
 export const corsHeaders = {
@@ -103,4 +104,5 @@ const routes: Record<
 > = {
   'GET:/groups/info': handleGetInfo,
   'POST:/groups/create': handlePostCreate,
+  'PATCH:/groups/expenses': handlePatchUpdate,
 };
