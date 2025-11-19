@@ -1,59 +1,22 @@
 import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { StyleSheet, TextInput, Pressable } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import { router } from 'expo-router';
 
-import React, { useEffect, useState } from 'react';
-import { View, Text } from 'react-native';
+import { useState } from 'react';
+import { Text } from 'react-native';
 
 export default function HomeScreen() {
-  interface GroupExpense {
-    id: number;
-    description: string;
-    paidFor: string[];
-    paidBy: string;
-  }
-  interface GroupInfo {
-    name: string;
-    description: string;
-    members: string[];
-    expenses: GroupExpense[];
-  }
+  const [inputUuid, setInputUuid] = useState('');
 
-  const backendURL = window.location.origin.replace(':8081', ':8787') + '/api/';
-
-  const [data, setData]: [GroupInfo, any] = useState<any>(null);
-  useEffect(() => {
-    try {
-      (async () => {
-        const resp = await fetch(
-          backendURL + 'groups/ec07c9fe-5124-4fd3-b040-55fa0d6685a1/info',
-          {
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          },
-        );
-
-        // Everything alright?
-        if (!resp.ok) {
-          setData('NOT FOUND');
-          return;
-        }
-
-        const json = (await resp.json()) as GroupInfo;
-
-        setData(json);
-      })();
-    } catch (error) {
-      setData('');
-      console.error('Error fetching data:', error);
+  const handleNavigate = () => {
+    if (inputUuid.trim()) {
+      router.push(`/group/${inputUuid.trim()}`);
     }
-  }, []);
+  };
 
   return (
     <ParallaxScrollView
@@ -64,28 +27,21 @@ export default function HomeScreen() {
           style={styles.reactLogo}
         />
       }
-    >
+      >
       <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">
-          {data ? JSON.stringify(data.name) : 'Loading goup name...'}{' '}
-        </ThemedText>
+        <ThemedText type="title">Enter Group UUID</ThemedText>
       </ThemedView>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="subtitle">
-          {data
-            ? JSON.stringify(data.description)
-            : 'Loading description...'}{' '}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="default">
-          {data ? JSON.stringify(data.members) : 'Loading members...'}{' '}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="default">
-          {data ? JSON.stringify(data.expenses) : 'Loading expenses...'}{' '}
-        </ThemedText>
+      <ThemedView style={styles.inputContainer}>
+        <TextInput
+          style={styles.input}
+          placeholder="Enter UUID"
+          value={inputUuid}
+          onChangeText={setInputUuid}
+          onSubmitEditing={handleNavigate}
+        />
+        <Pressable style={styles.button} onPress={handleNavigate}>
+          <Text style={styles.buttonText}>Go</Text>
+        </Pressable>
       </ThemedView>
     </ParallaxScrollView>
   );
@@ -93,13 +49,12 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   titleContainer: {
+    marginBottom: 16,
+  },
+  inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
   },
   reactLogo: {
     height: 178,
@@ -107,5 +62,24 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     position: 'absolute',
+  },
+  input: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 4,
+    padding: 8,
+    fontSize: 14,
+  },
+  button: {
+    backgroundColor: '#007AFF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 4,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

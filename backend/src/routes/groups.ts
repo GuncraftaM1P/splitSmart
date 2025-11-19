@@ -134,8 +134,47 @@ export async function handlePatchUpdate(
   env: Env,
   groupId: string,
 ): Promise<Response> {
-  // Implementation for updating group details would go here
-  return new Response('Not Implemented', { status: 501 });
+  const payload = (await request.json().catch(() => null)) as {
+    name?: string;
+    description?: string;
+  } | null;
+  if (!payload || typeof payload !== 'object') {
+    return new Response('Invalid JSON payload', { status: 400 });
+  }
+
+  const updates: { name?: string; description?: string } = {};
+  if (typeof payload.name === 'string') {
+    const trimmedName = payload.name.trim();
+    if (trimmedName.length === 0) {
+      return new Response('Name cannot be empty', { status: 400 });
+    }
+    if (trimmedName.length > 30) {
+      return new Response('Name must be at most 30 characters', {
+        status: 400,
+      });
+    }
+    updates.name = trimmedName;
+  }
+  if (typeof payload.description === 'string') {
+    if (payload.description.length > 200) {
+      return new Response('Description must be at most 200 characters', {
+        status: 400,
+      });
+    }
+    updates.description = payload.description;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return new Response('Nothing to update', { status: 400 });
+  }
+
+  const db = drizzle(env.prod_db);
+  const result = await db
+    .update(groupsTable)
+    .set(updates)
+    .where(eq(groupsTable.id, groupId));
+
+  return new Response('Group updated', { status: 200 });
 }
 
 export async function handleDelete(
