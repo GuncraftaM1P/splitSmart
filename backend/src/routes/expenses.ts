@@ -2,6 +2,8 @@
 //bei schema.ts aufbau von expenisves abshauen
 //in index.ts importieren
 
+//den endpunkt in openAPi.json dokumentieen
+
 
 import { drizzle } from 'drizzle-orm/d1';
 import { eq } from 'drizzle-orm';
