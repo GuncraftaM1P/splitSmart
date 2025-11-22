@@ -38,15 +38,62 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
   // Load persisted groups (if any) from localStorage (web) or memory
   React.useEffect(() => {
-    try {
-      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
-      if (raw) {
+    let mounted = true;
+
+    async function validatePersisted() {
+      setLoading(true);
+      try {
+        const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
+        if (!raw) return;
+
         const parsed = JSON.parse(raw) as Group[];
-        setGroups(parsed);
+        if (!Array.isArray(parsed) || parsed.length === 0) {
+          if (mounted) setGroups([]);
+          return;
+        }
+
+        const backendURL =
+          typeof window !== 'undefined'
+            ? window.location.origin.replace(':8081', ':8787') + '/api/'
+            : '/api/';
+
+        const checks = await Promise.all(
+          parsed.map(async (g) => {
+            try {
+              const res = await fetch(backendURL + `groups/${g.id}/info`);
+              if (res.ok) {
+                const json = await res.json();
+                return { id: g.id, name: json.name } as Group;
+              }
+
+              // If 404 -> group doesn't exist on server -> drop it
+              if (res.status === 404) return null;
+
+              // Other non-ok (500 etc.) -> keep local entry to avoid accidental loss
+              console.warn(`Unexpected status while validating group ${g.id}: ${res.status}`);
+              return g;
+            } catch (err) {
+              // Network or other error -> keep local entry so UI remains usable
+              console.warn('Network error while validating group', g.id, err);
+              return g;
+            }
+          }),
+        );
+
+        const validated = checks.filter(Boolean) as Group[];
+        if (mounted) setGroups(validated);
+      } catch (err) {
+        console.warn('Failed to validate persisted groups', err);
+      } finally {
+        if (mounted) setLoading(false);
       }
-    } catch (err) {
-      // ignore
     }
+
+    validatePersisted();
+
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   React.useEffect(() => {
