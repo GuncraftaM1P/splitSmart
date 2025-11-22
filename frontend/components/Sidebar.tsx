@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import { Link } from 'expo-router';
 
 type SidebarProps = {
@@ -35,6 +35,27 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const [groups, setGroups] = React.useState<Group[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [creating, setCreating] = React.useState(false);
+  const [deletingIds, setDeletingIds] = React.useState<string[]>([]);
+  async function deleteGroup(id: string) {
+    setDeletingIds(prev => [...prev, id]);
+    try {
+      const backendURL =
+        typeof window !== 'undefined'
+          ? window.location.origin.replace(':8081', ':8787') + '/api/'
+          : '/api/';
+      const res = await fetch(backendURL + `groups/${id}/delete`, { method: 'DELETE' });
+      if (!res.ok) {
+        const text = await res.text();
+        console.warn('Failed to delete group', text);
+        return;
+      }
+      setGroups(prev => prev.filter(g => g.id !== id));
+    } catch (err) {
+      console.warn('Error deleting group', err);
+    } finally {
+      setDeletingIds(prev => prev.filter(x => x !== id));
+    }
+  }
 
   // Load persisted groups (if any) from localStorage (web) or memory
   React.useEffect(() => {
@@ -173,8 +194,8 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       <View style={styles.items}>
         {items.map(i => (
           <Link key={i.href} href={i.href} asChild>
-            <Pressable style={styles.item}>
-              <Text style={[styles.itemText, collapsed ? styles.itemTextCollapsed : null]}>
+            <Pressable style={styles.groupLink}>
+              <Text style={styles.groupName}>
                 {collapsed ? i.label.charAt(0) : i.label}
               </Text>
             </Pressable>
@@ -189,13 +210,44 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             <ActivityIndicator />
           ) : (
             groups.map(g => (
-              <Link key={g.id} href={`/groups/${g.id}` as unknown as any} asChild>
-                <Pressable style={styles.item}>
-                  <Text style={[styles.itemText, collapsed ? styles.itemTextCollapsed : null]}>
-                    {collapsed ? g.name.charAt(0) : g.name}
-                  </Text>
-                </Pressable>
-              </Link>
+              <View key={g.id} style={styles.itemRow}>
+                {Platform.OS === 'web' ? (
+                  <a href={`/groups/${g.id}`} style={styles.groupLink}>
+                    <span style={styles.groupIcon} role="img" aria-label="Gruppe">👥</span>
+                    <span style={styles.groupName}>
+                      {collapsed ? g.name.charAt(0) : g.name}
+                    </span>
+                  </a>
+                ) : (
+                  <Link href={`/groups/${g.id}` as unknown as any} asChild>
+                    <Pressable style={[styles.groupLink, collapsed ? styles.groupLinkCollapsed : null]}>
+                      <Text style={styles.groupIcon}>👥</Text>
+                      <Text style={[styles.groupName, collapsed ? styles.groupNameCollapsed : null]}>
+                        {collapsed ? g.name.charAt(0) : g.name}
+                      </Text>
+                    </Pressable>
+                  </Link>
+                )}
+                {Platform.OS === 'web' ? (
+                  <button
+                    onClick={() => deleteGroup(g.id)}
+                    aria-label={`Gruppe ${g.name} löschen`}
+                    style={styles.deleteButton}
+                    disabled={deletingIds.includes(g.id)}
+                  >
+                    <span style={styles.deleteButtonText}>{deletingIds.includes(g.id) ? '…' : '✕'}</span>
+                  </button>
+                ) : (
+                  <Pressable
+                    onPress={() => deleteGroup(g.id)}
+                    accessibilityLabel={`Gruppe ${g.name} löschen`}
+                    style={styles.deleteButton}
+                    disabled={deletingIds.includes(g.id)}
+                  >
+                    <Text style={styles.deleteButtonText}>{deletingIds.includes(g.id) ? '…' : '✕'}</Text>
+                  </Pressable>
+                )}
+              </View>
             ))
           )}
 
@@ -233,9 +285,50 @@ const styles = StyleSheet.create({
   },
   toggleText: { fontSize: 16 },
   items: { marginTop: 4 },
-  item: { paddingVertical: 10, alignItems: 'center' },
-  itemText: { fontSize: 16 },
-  itemTextCollapsed: { fontSize: 14 },
+  itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  groupLink: {
+    flex: 1,
+    textDecorationLine: 'none',
+    backgroundColor: 'linear-gradient(90deg, #e0e7ff 0%, #f0fdfa 100%)', // web only
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    marginVertical: 5,
+    marginRight: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+    // web only
+    cursor: 'pointer',
+  },
+  groupIcon: {
+    fontSize: 18,
+    marginRight: 8,
+    color: '#6366f1',
+    alignSelf: 'center',
+  },
+  groupLinkCollapsed: {
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+  groupName: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#222',
+    letterSpacing: 0.2,
+    alignSelf: 'center',
+    fontFamily: Platform.OS === 'web'
+      ? 'Inter, Montserrat, system-ui, Arial, sans-serif'
+      : undefined,
+  },
+  groupNameCollapsed: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
   createButtonText: { fontSize: 14, color: '#fff' },
   createButtonDisabled: { opacity: 0.6 },
   createButton: {
@@ -246,4 +339,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sectionTitle: { fontWeight: '600', marginBottom: 6 },
+  deleteButton: {
+    marginLeft: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  deleteButtonText: { color: '#888', fontSize: 14 },
 });

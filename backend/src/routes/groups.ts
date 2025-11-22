@@ -129,3 +129,44 @@ export async function handlePatchUpdate(
   // Implementation for updating group details would go here
   return new Response('Not Implemented', { status: 501 });
 }
+
+export async function handleDelete(
+  request: Request,
+  env: Env,
+  groupId: string,
+): Promise<Response> {
+  if (!validate(groupId) || version(groupId) !== 4) {
+    return new Response('Invalid UUID v4', { status: 400 });
+  }
+  try {
+    await env.prod_db.prepare(
+      `CREATE TABLE IF NOT EXISTS groups (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        description TEXT,
+        members TEXT NOT NULL DEFAULT '[]',
+        expenses TEXT NOT NULL DEFAULT '[]'
+      )`,
+    ).run();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return new Response(`Failed to ensure groups table: ${message}`, { status: 500 });
+  }
+
+  const db = drizzle(env.prod_db);
+  try {
+    const existing = await db
+      .select()
+      .from(groupsTable)
+      .where(eq(groupsTable.id, groupId))
+      .get();
+    if (!existing) {
+      return new Response('Group not found', { status: 404 });
+    }
+    await db.delete(groupsTable).where(eq(groupsTable.id, groupId));
+    return new Response(null, { status: 204 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return new Response(`Failed to delete group: ${message}`, { status: 500 });
+  }
+}
