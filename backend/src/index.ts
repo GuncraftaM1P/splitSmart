@@ -80,17 +80,30 @@ export default {
         return new Response('403 Forbidden', { status: 403 });
       }
 
-      const res = await routes[routeKey](request, env, groupId);
-      return new Response(res.body, {
-        status: res.status,
-        statusText: res.statusText,
-        headers: {
-          ...Object.fromEntries(res.headers),
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': '*',
-        },
-      });
+      try {
+        const res = await routes[routeKey](request, env, groupId);
+        return new Response(res.body, {
+          status: res.status,
+          statusText: res.statusText,
+          headers: {
+            ...Object.fromEntries(res.headers),
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+            'Access-Control-Allow-Headers': '*',
+          },
+        });
+      } catch (err) {
+        // Ensure CORS headers are present even on unexpected handler errors so the browser
+        // receives a proper response instead of blocking the error due to missing CORS.
+        const message = err instanceof Error ? err.message : String(err ?? 'Internal Server Error');
+        return new Response(message, {
+          status: 500,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'text/plain',
+          },
+        });
+      }
     }
 
     return new Response('404 Not Found', { status: 404 });

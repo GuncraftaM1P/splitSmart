@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
 import { Link } from 'expo-router';
 
 type SidebarProps = {
@@ -7,7 +7,104 @@ type SidebarProps = {
   onToggle?: () => void;
 };
 
+type Group = { id: string; name: string };
+
+const STORAGE_KEY = 'splitSmart.groups';
+
+function generateUuid(): string {
+  // Prefer secure native implementation when available
+  try {
+    // @ts-ignore
+    if (typeof globalThis?.crypto?.randomUUID === 'function') {
+      // @ts-ignore
+      return globalThis.crypto.randomUUID();
+    }
+  } catch (_) {
+    // fall through
+  }
+
+  // Fallback simple UUID v4 generator (not cryptographically strong)
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
+  const [groups, setGroups] = React.useState<Group[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [creating, setCreating] = React.useState(false);
+
+  // Load persisted groups (if any) from localStorage (web) or memory
+  React.useEffect(() => {
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
+      if (raw) {
+        const parsed = JSON.parse(raw) as Group[];
+        setGroups(parsed);
+      }
+    } catch (err) {
+      // ignore
+    }
+  }, []);
+
+  React.useEffect(() => {
+    // Persist groups when changed
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
+      }
+    } catch (err) {
+      // ignore
+    }
+  }, [groups]);
+
+  async function refreshGroupInfo(id: string) {
+    try {
+      const backendURL =
+        typeof window !== 'undefined'
+          ? window.location.origin.replace(':8081', ':8787') + '/api/'
+          : '/api/';
+
+      const res = await fetch(backendURL + `groups/${id}/info`);
+      if (!res.ok) return null;
+      const json = await res.json();
+      return { id, name: json.name } as Group;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  async function createGroup() {
+    setCreating(true);
+    const id = generateUuid();
+
+    try {
+      const backendURL =
+        typeof window !== 'undefined'
+          ? window.location.origin.replace(':8081', ':8787') + '/api/'
+          : '/api/';
+
+      const res = await fetch(backendURL + `groups/${id}/create`, { method: 'POST' });
+      if (!res.ok) {
+        const text = await res.text();
+        console.warn('Failed to create group', text);
+        setCreating(false);
+        return;
+      }
+
+      // after creation, fetch the group's info
+      const info = await refreshGroupInfo(id);
+      const newGroup = info ?? { id, name: `Group ${id.slice(0, 6)}` };
+      setGroups(prev => [newGroup, ...prev]);
+    } catch (err) {
+      console.warn('Error creating group', err);
+    } finally {
+      setCreating(false);
+    }
+  }
+
   const items = [
     { label: 'Home', href: '/' },
     { label: 'Explore', href: '/explore' },
@@ -36,6 +133,38 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             </Pressable>
           </Link>
         ))}
+
+        {/* Groups section */}
+        <View style={{ marginTop: 12 }}>
+          {!collapsed && <Text style={[styles.sectionTitle]}>Gruppen</Text>}
+
+          {loading ? (
+            <ActivityIndicator />
+          ) : (
+            groups.map(g => (
+              <Link key={g.id} href={`/groups/${g.id}` as unknown as any} asChild>
+                <Pressable style={styles.item}>
+                  <Text style={[styles.itemText, collapsed ? styles.itemTextCollapsed : null]}>
+                    {collapsed ? g.name.charAt(0) : g.name}
+                  </Text>
+                </Pressable>
+              </Link>
+            ))
+          )}
+
+          <View style={{ marginTop: 8 }}>
+            <Pressable
+              onPress={createGroup}
+              accessibilityLabel="Create new group"
+              style={[styles.createButton, creating ? styles.createButtonDisabled : null]}
+              disabled={creating}
+            >
+              <Text style={styles.createButtonText}>
+                {creating ? 'Erstelle …' : (collapsed ? '+' : 'Neue Gruppe erstellen')}
+              </Text>
+            </Pressable>
+          </View>
+        </View>
       </View>
     </View>
   );
@@ -60,4 +189,14 @@ const styles = StyleSheet.create({
   item: { paddingVertical: 10, alignItems: 'center' },
   itemText: { fontSize: 16 },
   itemTextCollapsed: { fontSize: 14 },
+  createButtonText: { fontSize: 14, color: '#fff' },
+  createButtonDisabled: { opacity: 0.6 },
+  createButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    backgroundColor: '#007AFF',
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  sectionTitle: { fontWeight: '600', marginBottom: 6 },
 });
