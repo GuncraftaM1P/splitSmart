@@ -213,7 +213,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
               <View key={g.id} style={styles.itemRow}>
                 {Platform.OS === 'web' ? (
                   <a href={`/groups/${g.id}`} style={styles.groupLink}>
-                    <span style={styles.groupIcon} role="img" aria-label="Gruppe">👥</span>
+                    {!collapsed && <span style={styles.groupIcon} role="img" aria-label="Gruppe">👥</span>}
                     <span style={styles.groupName}>
                       {collapsed ? g.name.charAt(0) : g.name}
                     </span>
@@ -221,31 +221,33 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                 ) : (
                   <Link href={`/groups/${g.id}` as unknown as any} asChild>
                     <Pressable style={[styles.groupLink, collapsed ? styles.groupLinkCollapsed : null]}>
-                      <Text style={styles.groupIcon}>👥</Text>
+                      {!collapsed && <Text style={styles.groupIcon}>👥</Text>}
                       <Text style={[styles.groupName, collapsed ? styles.groupNameCollapsed : null]}>
                         {collapsed ? g.name.charAt(0) : g.name}
                       </Text>
                     </Pressable>
                   </Link>
                 )}
-                {Platform.OS === 'web' ? (
-                  <button
-                    onClick={() => deleteGroup(g.id)}
-                    aria-label={`Gruppe ${g.name} löschen`}
-                    style={styles.deleteButton}
-                    disabled={deletingIds.includes(g.id)}
-                  >
-                    <span style={styles.deleteButtonText}>{deletingIds.includes(g.id) ? '…' : '✕'}</span>
-                  </button>
-                ) : (
-                  <Pressable
-                    onPress={() => deleteGroup(g.id)}
-                    accessibilityLabel={`Gruppe ${g.name} löschen`}
-                    style={styles.deleteButton}
-                    disabled={deletingIds.includes(g.id)}
-                  >
-                    <Text style={styles.deleteButtonText}>{deletingIds.includes(g.id) ? '…' : '✕'}</Text>
-                  </Pressable>
+                {!collapsed && (
+                  Platform.OS === 'web' ? (
+                    <button
+                      onClick={() => deleteGroup(g.id)}
+                      aria-label={`Gruppe ${g.name} löschen`}
+                      style={styles.deleteButton}
+                      disabled={deletingIds.includes(g.id)}
+                    >
+                      <span style={styles.deleteButtonText}>{deletingIds.includes(g.id) ? '…' : '✕'}</span>
+                    </button>
+                  ) : (
+                    <Pressable
+                      onPress={() => deleteGroup(g.id)}
+                      accessibilityLabel={`Gruppe ${g.name} löschen`}
+                      style={styles.deleteButton}
+                      disabled={deletingIds.includes(g.id)}
+                    >
+                      <Text style={styles.deleteButtonText}>{deletingIds.includes(g.id) ? '…' : '✕'}</Text>
+                    </Pressable>
+                  )
                 )}
               </View>
             ))
