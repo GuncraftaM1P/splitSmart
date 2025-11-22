@@ -1,9 +1,7 @@
-import { StyleSheet, Pressable, TextInput } from 'react-native';
+import { StyleSheet, Pressable, TextInput, View, Text } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { getBackendURL } from '@/constants/api';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 
@@ -31,38 +29,64 @@ export default function GroupScreen() {
   const [editedDescription, setEditedDescription] = useState('');
   const [originalName, setOriginalName] = useState('');
   const [originalDescription, setOriginalDescription] = useState('');
+  const isMountedRef = useRef(true);
 
   const backendURL = getBackendURL();
 
+  const fetchGroupInfo = async () => {
+    if (!uuid || !isMountedRef.current) return;
+
+    try {
+      const resp = await fetch(`${backendURL}groups/${uuid}/info`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!resp.ok || !isMountedRef.current) {
+        setError('Group not found');
+        return;
+      }
+
+      const json = (await resp.json()) as GroupInfo;
+
+      if (!isMountedRef.current) return;
+
+      setData(json);
+
+      // Only update edit fields if not currently editing
+      if (!isEditingName) {
+        setEditedName(json.name);
+        setOriginalName(json.name);
+      }
+      if (!isEditingDescription) {
+        setEditedDescription(json.description);
+        setOriginalDescription(json.description);
+      }
+    } catch (err) {
+      if (!isMountedRef.current) return;
+      setError('Error loading group');
+      console.error('Error fetching data:', err);
+    }
+  };
+
+  // Initial fetch and polling every 5 seconds
   useEffect(() => {
     if (!uuid) return;
 
-    (async () => {
-      try {
-        const resp = await fetch(`${backendURL}groups/${uuid}/info`, {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+    isMountedRef.current = true;
+    fetchGroupInfo();
 
-        if (!resp.ok) {
-          setError('Group not found');
-          return;
-        }
+    const interval = setInterval(() => {
+      fetchGroupInfo();
+    }, 5000);
 
-        const json = await resp.json() as GroupInfo;
-        setData(json);
-        setEditedName(json.name);
-        setOriginalName(json.name);
-        setEditedDescription(json.description);
-        setOriginalDescription(json.description);
-      } catch (err) {
-        setError('Error loading group');
-        console.error('Error fetching data:', err);
-      }
-    })();
-  }, [uuid]);
+    return () => {
+      isMountedRef.current = false;
+      clearInterval(interval);
+    };
+  }, [uuid, isEditingName, isEditingDescription]);
 
   const sendPatchUpdate = async (updates: {
     name?: string;
@@ -72,16 +96,13 @@ export default function GroupScreen() {
       return false;
     }
     try {
-      const res = await fetch(
-        `${backendURL}groups/${uuid}/update`,
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(updates),
+      const res = await fetch(`${backendURL}groups/${uuid}/update`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
         },
-      );
+        body: JSON.stringify(updates),
+      });
       if (!res.ok) {
         const text = await res.text();
         setError(text || 'Update failed');
@@ -108,7 +129,7 @@ export default function GroupScreen() {
           return;
         }
         setOriginalName(trimmedName);
-        setData(old => (old ? { ...old, name: trimmedName } : old));
+        setData((old) => (old ? { ...old, name: trimmedName } : old));
       }
     }
     setIsEditingName(!isEditingName);
@@ -117,12 +138,16 @@ export default function GroupScreen() {
   const handleEditDescriptionClick = async () => {
     if (isEditingDescription) {
       if (editedDescription !== originalDescription) {
-        const success = await sendPatchUpdate({ description: editedDescription });
+        const success = await sendPatchUpdate({
+          description: editedDescription,
+        });
         if (!success) {
           return;
         }
         setOriginalDescription(editedDescription);
-        setData(old => (old ? { ...old, description: editedDescription } : old));
+        setData((old) =>
+          old ? { ...old, description: editedDescription } : old,
+        );
       }
     }
     setIsEditingDescription(!isEditingDescription);
@@ -130,16 +155,16 @@ export default function GroupScreen() {
 
   return (
     <>
-      <Stack.Screen 
+      <Stack.Screen
         options={{
           title: '',
           headerBackButtonDisplayMode: 'minimal',
           headerShadowVisible: false,
-          headerStyle: { backgroundColor: 'transparent' },
+          headerStyle: { backgroundColor: '#fff' },
         }}
       />
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.row}>
+      <View style={styles.container}>
+        <View style={styles.row}>
           {isEditingName ? (
             <TextInput
               style={styles.titleInput}
@@ -149,20 +174,14 @@ export default function GroupScreen() {
               onSubmitEditing={handleEditNameClick}
             />
           ) : (
-            <ThemedText type="title" style={styles.title}>
-              {data?.name ?? 'Loading...'}
-            </ThemedText>
+            <Text style={styles.title}>{data?.name ?? 'Loading...'}</Text>
           )}
           <Pressable onPress={handleEditNameClick} style={styles.editButton}>
-            <IconSymbol 
-              size={20} 
-              name="pencil" 
-              color="#999" 
-            />
+            <IconSymbol size={20} name="pencil" color="#999" />
           </Pressable>
-        </ThemedView>
-        
-        <ThemedView style={styles.row}>
+        </View>
+
+        <View style={styles.row}>
           {isEditingDescription ? (
             <TextInput
               style={styles.descriptionInput}
@@ -178,19 +197,18 @@ export default function GroupScreen() {
               }}
             />
           ) : (
-            <ThemedText style={styles.description}>
+            <Text style={styles.description}>
               {data?.description ?? 'Loading description...'}
-            </ThemedText>
+            </Text>
           )}
-          <Pressable onPress={handleEditDescriptionClick} style={styles.editButton}>
-            <IconSymbol 
-              size={20} 
-              name="pencil" 
-              color="#999" 
-            />
+          <Pressable
+            onPress={handleEditDescriptionClick}
+            style={styles.editButton}
+          >
+            <IconSymbol size={20} name="pencil" color="#999" />
           </Pressable>
-        </ThemedView>
-      </ThemedView>
+        </View>
+      </View>
     </>
   );
 }
@@ -199,6 +217,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 16,
+    backgroundColor: '#fff',
   },
   row: {
     flexDirection: 'row',
@@ -206,12 +225,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 24,
     gap: 8,
+    backgroundColor: '#fff',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
     lineHeight: 28,
     textAlign: 'center',
+    color: '#11181C',
   },
   titleInput: {
     fontSize: 28,
@@ -220,6 +241,7 @@ const styles = StyleSheet.create({
     borderBottomColor: '#ccc',
     padding: 4,
     textAlign: 'center',
+    color: '#11181C',
   },
   description: {
     fontSize: 16,
@@ -234,6 +256,7 @@ const styles = StyleSheet.create({
     padding: 4,
     minHeight: 40,
     textAlign: 'center',
+    color: '#11181C',
   },
   editButton: {
     marginLeft: 4,
