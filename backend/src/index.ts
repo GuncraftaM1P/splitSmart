@@ -1,4 +1,8 @@
-import { handleGetInfo, handlePostCreate, handleDelete } from './routes/groups.js';
+import {
+  handleGetInfo,
+  handlePostCreate,
+  handleDelete,
+} from './routes/groups.js';
 import openapi from './openapi.json';
 
 export const corsHeaders = {
@@ -95,7 +99,10 @@ export default {
       } catch (err) {
         // Ensure CORS headers are present even on unexpected handler errors so the browser
         // receives a proper response instead of blocking the error due to missing CORS.
-        const message = err instanceof Error ? err.message : String(err ?? 'Internal Server Error');
+        const message =
+          err instanceof Error
+            ? err.message
+            : String(err ?? 'Internal Server Error');
         return new Response(message, {
           status: 500,
           headers: {

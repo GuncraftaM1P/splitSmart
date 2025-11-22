@@ -1,5 +1,12 @@
 import React from 'react';
-import { View, Text, Pressable, StyleSheet, ActivityIndicator, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  ActivityIndicator,
+  Platform,
+} from 'react-native';
 import { Link } from 'expo-router';
 
 type SidebarProps = {
@@ -24,7 +31,7 @@ function generateUuid(): string {
   }
 
   // Fallback simple UUID v4 generator (not cryptographically strong)
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0;
     const v = c === 'x' ? r : (r & 0x3) | 0x8;
     return v.toString(16);
@@ -37,23 +44,25 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const [creating, setCreating] = React.useState(false);
   const [deletingIds, setDeletingIds] = React.useState<string[]>([]);
   async function deleteGroup(id: string) {
-    setDeletingIds(prev => [...prev, id]);
+    setDeletingIds((prev) => [...prev, id]);
     try {
       const backendURL =
         typeof window !== 'undefined'
           ? window.location.origin.replace(':8081', ':8787') + '/api/'
           : '/api/';
-      const res = await fetch(backendURL + `groups/${id}/delete`, { method: 'DELETE' });
+      const res = await fetch(backendURL + `groups/${id}/delete`, {
+        method: 'DELETE',
+      });
       if (!res.ok) {
         const text = await res.text();
         console.warn('Failed to delete group', text);
         return;
       }
-      setGroups(prev => prev.filter(g => g.id !== id));
+      setGroups((prev) => prev.filter((g) => g.id !== id));
     } catch (err) {
       console.warn('Error deleting group', err);
     } finally {
-      setDeletingIds(prev => prev.filter(x => x !== id));
+      setDeletingIds((prev) => prev.filter((x) => x !== id));
     }
   }
 
@@ -64,7 +73,10 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
     async function validatePersisted() {
       setLoading(true);
       try {
-        const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
+        const raw =
+          typeof localStorage !== 'undefined'
+            ? localStorage.getItem(STORAGE_KEY)
+            : null;
         if (!raw) return;
 
         const parsed = JSON.parse(raw) as Group[];
@@ -91,7 +103,9 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
               if (res.status === 404) return null;
 
               // Other non-ok (500 etc.) -> keep local entry to avoid accidental loss
-              console.warn(`Unexpected status while validating group ${g.id}: ${res.status}`);
+              console.warn(
+                `Unexpected status while validating group ${g.id}: ${res.status}`,
+              );
               return g;
             } catch (err) {
               // Network or other error -> keep local entry so UI remains usable
@@ -154,7 +168,9 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           ? window.location.origin.replace(':8081', ':8787') + '/api/'
           : '/api/';
 
-      const res = await fetch(backendURL + `groups/${id}/create`, { method: 'POST' });
+      const res = await fetch(backendURL + `groups/${id}/create`, {
+        method: 'POST',
+      });
       if (!res.ok) {
         const text = await res.text();
         console.warn('Failed to create group', text);
@@ -165,7 +181,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       // after creation, fetch the group's info
       const info = await refreshGroupInfo(id);
       const newGroup = info ?? { id, name: `Group ${id.slice(0, 6)}` };
-      setGroups(prev => [newGroup, ...prev]);
+      setGroups((prev) => [newGroup, ...prev]);
     } catch (err) {
       console.warn('Error creating group', err);
     } finally {
@@ -192,7 +208,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
       </View>
 
       <View style={styles.items}>
-        {items.map(i => (
+        {items.map((i) => (
           <Link key={i.href} href={i.href} asChild>
             <Pressable style={styles.groupLink}>
               <Text style={styles.groupName}>
@@ -209,34 +225,54 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           {loading ? (
             <ActivityIndicator />
           ) : (
-            groups.map(g => (
+            groups.map((g) => (
               <View key={g.id} style={styles.itemRow}>
                 {Platform.OS === 'web' ? (
                   <a href={`/groups/${g.id}`} style={styles.groupLink}>
-                    {!collapsed && <span style={styles.groupIcon} role="img" aria-label="Gruppe">👥</span>}
+                    {!collapsed && (
+                      <span
+                        style={styles.groupIcon}
+                        role="img"
+                        aria-label="Gruppe"
+                      >
+                        👥
+                      </span>
+                    )}
                     <span style={styles.groupName}>
                       {collapsed ? g.name.charAt(0) : g.name}
                     </span>
                   </a>
                 ) : (
                   <Link href={`/groups/${g.id}` as unknown as any} asChild>
-                    <Pressable style={[styles.groupLink, collapsed ? styles.groupLinkCollapsed : null]}>
+                    <Pressable
+                      style={[
+                        styles.groupLink,
+                        collapsed ? styles.groupLinkCollapsed : null,
+                      ]}
+                    >
                       {!collapsed && <Text style={styles.groupIcon}>👥</Text>}
-                      <Text style={[styles.groupName, collapsed ? styles.groupNameCollapsed : null]}>
+                      <Text
+                        style={[
+                          styles.groupName,
+                          collapsed ? styles.groupNameCollapsed : null,
+                        ]}
+                      >
                         {collapsed ? g.name.charAt(0) : g.name}
                       </Text>
                     </Pressable>
                   </Link>
                 )}
-                {!collapsed && (
-                  Platform.OS === 'web' ? (
+                {!collapsed &&
+                  (Platform.OS === 'web' ? (
                     <button
                       onClick={() => deleteGroup(g.id)}
                       aria-label={`Gruppe ${g.name} löschen`}
                       style={styles.deleteButton}
                       disabled={deletingIds.includes(g.id)}
                     >
-                      <span style={styles.deleteButtonText}>{deletingIds.includes(g.id) ? '…' : '✕'}</span>
+                      <span style={styles.deleteButtonText}>
+                        {deletingIds.includes(g.id) ? '…' : '✕'}
+                      </span>
                     </button>
                   ) : (
                     <Pressable
@@ -245,10 +281,11 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                       style={styles.deleteButton}
                       disabled={deletingIds.includes(g.id)}
                     >
-                      <Text style={styles.deleteButtonText}>{deletingIds.includes(g.id) ? '…' : '✕'}</Text>
+                      <Text style={styles.deleteButtonText}>
+                        {deletingIds.includes(g.id) ? '…' : '✕'}
+                      </Text>
                     </Pressable>
-                  )
-                )}
+                  ))}
               </View>
             ))
           )}
@@ -257,11 +294,18 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             <Pressable
               onPress={createGroup}
               accessibilityLabel="Create new group"
-              style={[styles.createButton, creating ? styles.createButtonDisabled : null]}
+              style={[
+                styles.createButton,
+                creating ? styles.createButtonDisabled : null,
+              ]}
               disabled={creating}
             >
               <Text style={styles.createButtonText}>
-                {creating ? 'Erstelle …' : (collapsed ? '+' : 'Neue Gruppe erstellen')}
+                {creating
+                  ? 'Erstelle …'
+                  : collapsed
+                    ? '+'
+                    : 'Neue Gruppe erstellen'}
               </Text>
             </Pressable>
           </View>
@@ -287,7 +331,11 @@ const styles = StyleSheet.create({
   },
   toggleText: { fontSize: 16 },
   items: { marginTop: 4 },
-  itemRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   groupLink: {
     flex: 1,
     textDecorationLine: 'none',
@@ -323,9 +371,10 @@ const styles = StyleSheet.create({
     color: '#222',
     letterSpacing: 0.2,
     alignSelf: 'center',
-    fontFamily: Platform.OS === 'web'
-      ? 'Inter, Montserrat, system-ui, Arial, sans-serif'
-      : undefined,
+    fontFamily:
+      Platform.OS === 'web'
+        ? 'Inter, Montserrat, system-ui, Arial, sans-serif'
+        : undefined,
   },
   groupNameCollapsed: {
     fontSize: 15,

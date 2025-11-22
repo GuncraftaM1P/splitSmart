@@ -12,18 +12,22 @@ export async function handleGetInfo(
   const db = drizzle(env.prod_db);
   // Ensure table exists to avoid "no such table" errors in dev
   try {
-    await env.prod_db.prepare(
-      `CREATE TABLE IF NOT EXISTS groups (
+    await env.prod_db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS groups (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         description TEXT,
         members TEXT NOT NULL DEFAULT '[]',
         expenses TEXT NOT NULL DEFAULT '[]'
       )`,
-    ).run();
+      )
+      .run();
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return new Response(`Failed to ensure groups table: ${message}`, { status: 500 });
+    return new Response(`Failed to ensure groups table: ${message}`, {
+      status: 500,
+    });
   }
 
   const result = await db
@@ -79,19 +83,23 @@ export async function handlePostCreate(
   // creating it here avoids query failures like "no such table: groups".
   try {
     // Create table if missing (columns mirror the drizzle schema types)
-    await env.prod_db.prepare(
-      `CREATE TABLE IF NOT EXISTS groups (
+    await env.prod_db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS groups (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         description TEXT,
         members TEXT NOT NULL DEFAULT '[]',
         expenses TEXT NOT NULL DEFAULT '[]'
       )`,
-    ).run();
+      )
+      .run();
   } catch (err) {
     // If creating the table failed, return a clear error for debugging.
     const message = err instanceof Error ? err.message : String(err);
-    return new Response(`Failed to ensure groups table: ${message}`, { status: 500 });
+    return new Response(`Failed to ensure groups table: ${message}`, {
+      status: 500,
+    });
   }
 
   const db = drizzle(env.prod_db);
@@ -139,18 +147,22 @@ export async function handleDelete(
     return new Response('Invalid UUID v4', { status: 400 });
   }
   try {
-    await env.prod_db.prepare(
-      `CREATE TABLE IF NOT EXISTS groups (
+    await env.prod_db
+      .prepare(
+        `CREATE TABLE IF NOT EXISTS groups (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
         description TEXT,
         members TEXT NOT NULL DEFAULT '[]',
         expenses TEXT NOT NULL DEFAULT '[]'
       )`,
-    ).run();
+      )
+      .run();
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return new Response(`Failed to ensure groups table: ${message}`, { status: 500 });
+    return new Response(`Failed to ensure groups table: ${message}`, {
+      status: 500,
+    });
   }
 
   const db = drizzle(env.prod_db);

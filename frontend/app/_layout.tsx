@@ -28,18 +28,23 @@ export default function RootLayout() {
   const showSidebar = width >= 768; // persistent Sidebar ab Tablet / Web
 
   const [collapsed, setCollapsed] = React.useState(false);
-  const toggleCollapsed = () => setCollapsed(c => !c);
+  const toggleCollapsed = () => setCollapsed((c) => !c);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <SafeAreaView style={{ flex: 1 }}>
         <View style={styles.container}>
           {showSidebar && (
-            <View style={[styles.sidebar, collapsed ? styles.sidebarCollapsed : null]}>
+            <View
+              style={[
+                styles.sidebar,
+                collapsed ? styles.sidebarCollapsed : null,
+              ]}
+            >
               <Sidebar collapsed={collapsed} onToggle={toggleCollapsed} />
             </View>
           )}
-  
+
           <View style={styles.content}>
             <Stack>
               <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
