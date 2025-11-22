@@ -1,27 +1,26 @@
-import { StyleSheet, Pressable, TextInput, View, Text } from 'react-native';
+import {
+  StyleSheet,
+  Pressable,
+  TextInput,
+  View,
+  Text,
+  useWindowDimensions,
+} from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
-import { useEffect, useState, useRef } from 'react';
+import { useState, useRef, useContext, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 
 import { getBackendURL } from '@/constants/api';
 import { IconSymbol } from '@/components/ui/icon-symbol';
-
-interface GroupExpense {
-  id: number;
-  description: string;
-  paidFor: string[];
-  paidBy: string;
-}
-
-interface GroupInfo {
-  name: string;
-  description: string;
-  members: string[];
-  expenses: GroupExpense[];
-}
+import HamburgerButton from '@/components/HamburgerButton';
+import { DrawerContext } from '../_layout';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { fetchGroupDetails, GroupDetails } from '@/lib/groupService';
 
 export default function GroupScreen() {
   const { uuid } = useLocalSearchParams<{ uuid: string }>();
-  const [data, setData] = useState<GroupInfo | null>(null);
+  const [data, setData] = useState<GroupDetails | null>(null);
   const [error, setError] = useState<string>('');
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
@@ -31,31 +30,23 @@ export default function GroupScreen() {
   const [originalDescription, setOriginalDescription] = useState('');
   const isMountedRef = useRef(true);
 
+  const { width } = useWindowDimensions();
+  const { toggleDrawer } = useContext(DrawerContext);
+  const colorScheme = useColorScheme();
+  const showHamburger = width < 768;
+
   const backendURL = getBackendURL();
 
   const fetchGroupInfo = async () => {
     if (!uuid || !isMountedRef.current) return;
 
     try {
-      const resp = await fetch(`${backendURL}groups/${uuid}/info`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!resp.ok || !isMountedRef.current) {
-        setError('Group not found');
-        return;
-      }
-
-      const json = (await resp.json()) as GroupInfo;
+      const json = await fetchGroupDetails(uuid);
 
       if (!isMountedRef.current) return;
 
       setData(json);
 
-      // Only update edit fields if not currently editing
       if (!isEditingName) {
         setEditedName(json.name);
         setOriginalName(json.name);
@@ -64,29 +55,38 @@ export default function GroupScreen() {
         setEditedDescription(json.description);
         setOriginalDescription(json.description);
       }
-    } catch (err) {
+      setError('');
+    } catch (err: any) {
       if (!isMountedRef.current) return;
-      setError('Error loading group');
+      const status = err?.status;
+      setError(status === 404 ? 'Group not found' : 'Error loading group');
       console.error('Error fetching data:', err);
     }
   };
 
-  // Initial fetch and polling every 5 seconds
-  useEffect(() => {
-    if (!uuid) return;
+  // Initial fetch and polling every 5 seconds while screen is focused
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-    isMountedRef.current = true;
-    fetchGroupInfo();
+  useFocusEffect(
+    useCallback(() => {
+      if (!uuid) return;
 
-    const interval = setInterval(() => {
+      isMountedRef.current = true;
       fetchGroupInfo();
-    }, 5000);
 
-    return () => {
-      isMountedRef.current = false;
-      clearInterval(interval);
-    };
-  }, [uuid, isEditingName, isEditingDescription]);
+      pollRef.current = setInterval(() => {
+        fetchGroupInfo();
+      }, 5000);
+
+      return () => {
+        isMountedRef.current = false;
+        if (pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
+      };
+    }, [uuid]),
+  );
 
   const sendPatchUpdate = async (updates: {
     name?: string;
@@ -160,7 +160,21 @@ export default function GroupScreen() {
           title: '',
           headerBackButtonDisplayMode: 'minimal',
           headerShadowVisible: false,
-          headerStyle: { backgroundColor: '#fff' },
+          headerStyle: {
+            backgroundColor: '#fff',
+          },
+          headerTitleStyle: {
+            fontSize: 18,
+            fontWeight: '600',
+          },
+          headerLeft: showHamburger
+            ? () => (
+                <HamburgerButton
+                  onPress={toggleDrawer}
+                  color={Colors[colorScheme ?? 'light'].text}
+                />
+              )
+            : undefined,
         }}
       />
       <View style={styles.container}>
@@ -174,7 +188,7 @@ export default function GroupScreen() {
               onSubmitEditing={handleEditNameClick}
             />
           ) : (
-            <Text style={styles.title}>{data?.name ?? 'Loading...'}</Text>
+            <Text style={styles.title}>{data?.name ?? 'Lädt...'}</Text>
           )}
           <Pressable onPress={handleEditNameClick} style={styles.editButton}>
             <IconSymbol size={20} name="pencil" color="#999" />
@@ -198,7 +212,7 @@ export default function GroupScreen() {
             />
           ) : (
             <Text style={styles.description}>
-              {data?.description ?? 'Loading description...'}
+              {data?.description ?? 'Beschreibung lädt...'}
             </Text>
           )}
           <Pressable

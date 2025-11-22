@@ -8,16 +8,20 @@ import {
   Platform,
 } from 'react-native';
 import { Link } from 'expo-router';
-import { getBackendURL } from '@/constants/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import {
+  GroupSummary,
+  loadValidatedGroups,
+  createGroup as createRemoteGroup,
+  deleteGroup as deleteRemoteGroup,
+  appendGroupId,
+  removeGroupId,
+} from '@/lib/groupService';
 
 type SidebarProps = {
   collapsed?: boolean;
   onToggle?: () => void;
 };
-
-type Group = { id: string; name: string };
-
-const STORAGE_KEY = 'splitSmart.groups';
 
 function generateUuid(): string {
   // Prefer secure native implementation when available
@@ -40,343 +44,304 @@ function generateUuid(): string {
 }
 
 export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
-  const [groups, setGroups] = React.useState<Group[]>([]);
+  const insets = useSafeAreaInsets();
+  const [groups, setGroups] = React.useState<GroupSummary[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [creating, setCreating] = React.useState(false);
   const [deletingIds, setDeletingIds] = React.useState<string[]>([]);
-  async function deleteGroup(id: string) {
-    setDeletingIds((prev) => [...prev, id]);
-    try {
-      const res = await fetch(getBackendURL() + `groups/${id}/delete`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        console.warn('Failed to delete group', text);
-        return;
-      }
-      setGroups((prev) => prev.filter((g) => g.id !== id));
-    } catch (err) {
-      console.warn('Error deleting group', err);
-    } finally {
-      setDeletingIds((prev) => prev.filter((x) => x !== id));
-    }
-  }
 
-  // Load persisted groups (if any) from localStorage (web) or memory
+  // Load persisted groups from shared helper
   React.useEffect(() => {
     let mounted = true;
 
-    async function validatePersisted() {
+    async function hydrate() {
       setLoading(true);
       try {
-        const raw =
-          typeof localStorage !== 'undefined'
-            ? localStorage.getItem(STORAGE_KEY)
-            : null;
-        if (!raw) return;
-
-        const parsed = JSON.parse(raw) as Group[];
-        if (!Array.isArray(parsed) || parsed.length === 0) {
-          if (mounted) setGroups([]);
-          return;
+        const { groups: storedGroups } = await loadValidatedGroups();
+        if (mounted) {
+          setGroups(storedGroups);
         }
-
-        const checks = await Promise.all(
-          parsed.map(async (g) => {
-            try {
-              const res = await fetch(getBackendURL() + `groups/${g.id}/info`);
-              if (res.ok) {
-                const json = await res.json();
-                return { id: g.id, name: json.name } as Group;
-              }
-
-              // If 404 -> group doesn't exist on server -> drop it
-              if (res.status === 404) return null;
-
-              // Other non-ok (500 etc.) -> keep local entry to avoid accidental loss
-              console.warn(
-                `Unexpected status while validating group ${g.id}: ${res.status}`,
-              );
-              return g;
-            } catch (err) {
-              // Network or other error -> keep local entry so UI remains usable
-              console.warn('Network error while validating group', g.id, err);
-              return g;
-            }
-          }),
-        );
-
-        const validated = checks.filter(Boolean) as Group[];
-        if (mounted) setGroups(validated);
-      } catch (err) {
-        console.warn('Failed to validate persisted groups', err);
       } finally {
         if (mounted) setLoading(false);
       }
     }
 
-    validatePersisted();
+    hydrate();
 
     return () => {
       mounted = false;
     };
   }, []);
 
-  React.useEffect(() => {
-    // Persist groups when changed
+  async function handleDeleteGroup(id: string) {
+    setDeletingIds((prev) => [...prev, id]);
     try {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
-      }
-    } catch (err) {
-      // ignore
-    }
-  }, [groups]);
-
-  async function refreshGroupInfo(id: string) {
-    try {
-      const res = await fetch(getBackendURL() + `groups/${id}/info`);
-      if (!res.ok) return null;
-      const json = await res.json();
-      return { id, name: json.name } as Group;
-    } catch (err) {
-      return null;
+      const success = await deleteRemoteGroup(id);
+      if (!success) return;
+      await removeGroupId(id);
+      setGroups((prev) => prev.filter((g) => g.id !== id));
+    } finally {
+      setDeletingIds((prev) => prev.filter((x) => x !== id));
     }
   }
 
-  async function createGroup() {
+  async function handleCreateGroup() {
     setCreating(true);
     const id = generateUuid();
 
     try {
-      const res = await fetch(getBackendURL() + `groups/${id}/create`, {
-        method: 'POST',
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        console.warn('Failed to create group', text);
-        setCreating(false);
-        return;
-      }
-
-      // after creation, fetch the group's info
-      const info = await refreshGroupInfo(id);
-      const newGroup = info ?? { id, name: `Group ${id.slice(0, 6)}` };
+      const newGroup = await createRemoteGroup(id);
+      if (!newGroup) return;
+      await appendGroupId(id);
       setGroups((prev) => [newGroup, ...prev]);
-    } catch (err) {
-      console.warn('Error creating group', err);
     } finally {
       setCreating(false);
     }
   }
 
   const items = [
-    { label: 'Home', href: '/' },
-    { label: 'Explore', href: '/explore' },
+    { label: 'Home', href: '/', icon: '🏠' },
+    { label: 'Explore', href: '/explore', icon: '🔍' },
   ] as const;
 
   return (
     <View style={[styles.root, collapsed ? styles.rootCollapsed : null]}>
-      <View style={styles.header}>
-        {!collapsed && <Text style={styles.title}>Menu</Text>}
-        <Pressable
-          onPress={onToggle}
-          accessibilityLabel={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          style={styles.toggleButton}
-        >
-          <Text style={styles.toggleText}>{collapsed ? '»' : '«'}</Text>
-        </Pressable>
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
+        {!collapsed && <Text style={styles.appTitle}>SplitSmart</Text>}
+        {Platform.OS === 'web' && (
+          <Pressable
+            onPress={onToggle}
+            accessibilityLabel={
+              collapsed ? 'Expand sidebar' : 'Collapse sidebar'
+            }
+            style={styles.toggleButton}
+          >
+            <Text style={styles.toggleText}>{collapsed ? '›' : '‹'}</Text>
+          </Pressable>
+        )}
       </View>
 
-      <View style={styles.items}>
+      {/* Navigation Items */}
+      <View style={styles.navSection}>
         {items.map((i) => (
           <Link key={i.href} href={i.href} asChild>
-            <Pressable style={styles.groupLink}>
-              <Text style={styles.groupName}>
-                {collapsed ? i.label.charAt(0) : i.label}
-              </Text>
+            <Pressable style={styles.navItem}>
+              <View style={styles.navIconContainer}>
+                <Text style={styles.navIcon}>{i.icon}</Text>
+              </View>
+              {!collapsed && <Text style={styles.navLabel}>{i.label}</Text>}
             </Pressable>
           </Link>
         ))}
+      </View>
 
-        {/* Groups section */}
-        <View style={{ marginTop: 12 }}>
-          {!collapsed && <Text style={[styles.sectionTitle]}>Gruppen</Text>}
+      {/* Groups section */}
+      <View style={styles.groupsSection}>
+        {!collapsed && <Text style={styles.sectionTitle}>Gruppen</Text>}
 
-          {loading ? (
-            <ActivityIndicator />
-          ) : (
-            groups.map((g) => (
-              <View key={g.id} style={styles.itemRow}>
-                {Platform.OS === 'web' ? (
-                  <a href={`/group/${g.id}`} style={styles.groupLink}>
-                    {!collapsed && (
-                      <span
-                        style={styles.groupIcon}
-                        role="img"
-                        aria-label="Gruppe"
-                      >
-                        👥
-                      </span>
-                    )}
-                    <span style={styles.groupName}>
-                      {collapsed ? g.name.charAt(0) : g.name}
-                    </span>
-                  </a>
-                ) : (
-                  <Link href={`/group/${g.id}` as unknown as any} asChild>
-                    <Pressable
-                      style={[
-                        styles.groupLink,
-                        collapsed ? styles.groupLinkCollapsed : null,
-                      ]}
-                    >
-                      {!collapsed && <Text style={styles.groupIcon}>👥</Text>}
-                      <Text
-                        style={[
-                          styles.groupName,
-                          collapsed ? styles.groupNameCollapsed : null,
-                        ]}
-                      >
-                        {collapsed ? g.name.charAt(0) : g.name}
-                      </Text>
-                    </Pressable>
-                  </Link>
-                )}
-                {!collapsed &&
-                  (Platform.OS === 'web' ? (
-                    <button
-                      onClick={() => deleteGroup(g.id)}
-                      aria-label={`Gruppe ${g.name} löschen`}
-                      style={styles.deleteButton}
-                      disabled={deletingIds.includes(g.id)}
-                    >
-                      <span style={styles.deleteButtonText}>
-                        {deletingIds.includes(g.id) ? '…' : '✕'}
-                      </span>
-                    </button>
-                  ) : (
-                    <Pressable
-                      onPress={() => deleteGroup(g.id)}
-                      accessibilityLabel={`Gruppe ${g.name} löschen`}
-                      style={styles.deleteButton}
-                      disabled={deletingIds.includes(g.id)}
-                    >
-                      <Text style={styles.deleteButtonText}>
-                        {deletingIds.includes(g.id) ? '…' : '✕'}
-                      </Text>
-                    </Pressable>
-                  ))}
-              </View>
-            ))
-          )}
-
-          <View style={{ marginTop: 8 }}>
-            <Pressable
-              onPress={createGroup}
-              accessibilityLabel="Create new group"
-              style={[
-                styles.createButton,
-                creating ? styles.createButtonDisabled : null,
-              ]}
-              disabled={creating}
-            >
-              <Text style={styles.createButtonText}>
-                {creating
-                  ? 'Erstelle …'
-                  : collapsed
-                  ? '+'
-                  : 'Neue Gruppe erstellen'}
-              </Text>
-            </Pressable>
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator color="#007AFF" />
           </View>
-        </View>
+        ) : groups.length === 0 && !collapsed ? (
+          <Text style={styles.emptyText}>Keine Gruppen</Text>
+        ) : (
+          groups.map((g) => (
+            <Link
+              key={g.id}
+              href={`/group/${g.id}` as any}
+              asChild
+              style={styles.groupLinkWrapper}
+            >
+              <Pressable style={styles.groupLink}>
+                <View style={styles.groupIconContainer}>
+                  <Text style={styles.groupIcon}>👥</Text>
+                </View>
+                {!collapsed && (
+                  <Text style={styles.groupName} numberOfLines={1}>
+                    {g.name}
+                  </Text>
+                )}
+              </Pressable>
+            </Link>
+          ))
+        )}
+
+        {/* Add group button styled like a group item */}
+        <Pressable
+          onPress={handleCreateGroup}
+          accessibilityLabel="Create new group"
+          style={[
+            styles.addGroupButton,
+            collapsed && styles.addGroupButtonCollapsed,
+          ]}
+          disabled={creating}
+        >
+          <View style={styles.groupIconContainer}>
+            <Text style={styles.addGroupIcon}>{creating ? '⋯' : '+'}</Text>
+          </View>
+          {!collapsed && <Text style={styles.addGroupLabel}>Neue Gruppe</Text>}
+        </Pressable>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { padding: 12, backgroundColor: '#fff', height: '100%' },
-  rootCollapsed: { paddingHorizontal: 8 },
+  root: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  rootCollapsed: {
+    paddingHorizontal: 4,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
   },
-  title: { fontWeight: '700', fontSize: 16 },
+  appTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#000',
+    letterSpacing: -0.5,
+  },
   toggleButton: {
-    padding: 6,
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
     borderRadius: 6,
+    backgroundColor: '#f5f5f5',
   },
-  toggleText: { fontSize: 16 },
-  items: { marginTop: 4 },
-  itemRow: {
+  toggleText: {
+    fontSize: 18,
+    color: '#666',
+    fontWeight: '400',
+  },
+
+  // Navigation section
+  navSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginBottom: 8,
+  },
+  navItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginVertical: 2,
+  },
+  navIconContainer: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  navIcon: {
+    fontSize: 20,
+    lineHeight: 24,
+    textAlign: 'center',
+  },
+  navLabel: {
+    fontSize: 15,
+    color: '#000',
+    fontWeight: '400',
+  },
+
+  // Groups section
+  groupsSection: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+  },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#999',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  loadingContainer: {
+    paddingVertical: 32,
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: 13,
+    color: '#999',
+    textAlign: 'center',
+    paddingVertical: 24,
+  },
+
+  // Group items
+  groupLinkWrapper: {
+    marginBottom: 8,
   },
   groupLink: {
-    flex: 1,
-    textDecorationLine: 'none',
-    backgroundColor: 'linear-gradient(90deg, #e0e7ff 0%, #f0fdfa 100%)', // web only
-    borderRadius: 999,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    marginVertical: 5,
-    marginRight: 2,
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
-    // web only
-    cursor: 'pointer',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+  },
+  groupIconContainer: {
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
   },
   groupIcon: {
-    fontSize: 18,
-    marginRight: 8,
-    color: '#6366f1',
-    alignSelf: 'center',
-  },
-  groupLinkCollapsed: {
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    fontSize: 20,
+    lineHeight: 24,
+    textAlign: 'center',
   },
   groupName: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#222',
-    letterSpacing: 0.2,
-    alignSelf: 'center',
-    fontFamily:
-      Platform.OS === 'web'
-        ? 'Inter, Montserrat, system-ui, Arial, sans-serif'
-        : undefined,
-  },
-  groupNameCollapsed: {
     fontSize: 15,
-    fontWeight: '700',
+    color: '#000',
+    fontWeight: '400',
+    flex: 1,
   },
-  createButtonText: { fontSize: 14, color: '#fff' },
-  createButtonDisabled: { opacity: 0.6 },
-  createButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    backgroundColor: '#007AFF',
-    borderRadius: 6,
+
+  // Add group button (styled like group item)
+  addGroupButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+    borderStyle: 'dashed',
+    marginTop: 4,
   },
-  sectionTitle: { fontWeight: '600', marginBottom: 6 },
-  deleteButton: {
-    marginLeft: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
+  addGroupButtonCollapsed: {
+    justifyContent: 'center',
+    paddingHorizontal: 0,
   },
-  deleteButtonText: { color: '#888', fontSize: 14 },
+  addGroupIcon: {
+    fontSize: 20,
+    lineHeight: 24,
+    textAlign: 'center',
+    color: '#007AFF',
+    fontWeight: '300',
+  },
+  addGroupLabel: {
+    fontSize: 15,
+    color: '#007AFF',
+    fontWeight: '400',
+  },
 });
