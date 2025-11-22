@@ -8,6 +8,7 @@ import {
   Platform,
 } from 'react-native';
 import { Link } from 'expo-router';
+import { getBackendURL } from '@/constants/api';
 
 type SidebarProps = {
   collapsed?: boolean;
@@ -46,11 +47,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   async function deleteGroup(id: string) {
     setDeletingIds((prev) => [...prev, id]);
     try {
-      const backendURL =
-        typeof window !== 'undefined'
-          ? window.location.origin.replace(':8081', ':8787') + '/api/'
-          : '/api/';
-      const res = await fetch(backendURL + `groups/${id}/delete`, {
+      const res = await fetch(getBackendURL() + `groups/${id}/delete`, {
         method: 'DELETE',
       });
       if (!res.ok) {
@@ -85,15 +82,10 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           return;
         }
 
-        const backendURL =
-          typeof window !== 'undefined'
-            ? window.location.origin.replace(':8081', ':8787') + '/api/'
-            : '/api/';
-
         const checks = await Promise.all(
           parsed.map(async (g) => {
             try {
-              const res = await fetch(backendURL + `groups/${g.id}/info`);
+              const res = await fetch(getBackendURL() + `groups/${g.id}/info`);
               if (res.ok) {
                 const json = await res.json();
                 return { id: g.id, name: json.name } as Group;
@@ -144,12 +136,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
   async function refreshGroupInfo(id: string) {
     try {
-      const backendURL =
-        typeof window !== 'undefined'
-          ? window.location.origin.replace(':8081', ':8787') + '/api/'
-          : '/api/';
-
-      const res = await fetch(backendURL + `groups/${id}/info`);
+      const res = await fetch(getBackendURL() + `groups/${id}/info`);
       if (!res.ok) return null;
       const json = await res.json();
       return { id, name: json.name } as Group;
@@ -163,12 +150,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
     const id = generateUuid();
 
     try {
-      const backendURL =
-        typeof window !== 'undefined'
-          ? window.location.origin.replace(':8081', ':8787') + '/api/'
-          : '/api/';
-
-      const res = await fetch(backendURL + `groups/${id}/create`, {
+      const res = await fetch(getBackendURL() + `groups/${id}/create`, {
         method: 'POST',
       });
       if (!res.ok) {
@@ -228,7 +210,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             groups.map((g) => (
               <View key={g.id} style={styles.itemRow}>
                 {Platform.OS === 'web' ? (
-                  <a href={`/groups/${g.id}`} style={styles.groupLink}>
+                  <a href={`/group/${g.id}`} style={styles.groupLink}>
                     {!collapsed && (
                       <span
                         style={styles.groupIcon}
@@ -243,7 +225,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                     </span>
                   </a>
                 ) : (
-                  <Link href={`/groups/${g.id}` as unknown as any} asChild>
+                  <Link href={`/group/${g.id}` as unknown as any} asChild>
                     <Pressable
                       style={[
                         styles.groupLink,
@@ -304,8 +286,8 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                 {creating
                   ? 'Erstelle …'
                   : collapsed
-                    ? '+'
-                    : 'Neue Gruppe erstellen'}
+                  ? '+'
+                  : 'Neue Gruppe erstellen'}
               </Text>
             </Pressable>
           </View>
