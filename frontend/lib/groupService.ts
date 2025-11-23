@@ -20,6 +20,28 @@ const STORAGE_KEY = 'splitSmart.groups';
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 300;
 
+// Simple in-memory pub/sub so UI can refresh when stored IDs change
+const groupListeners = new Set<() => void>();
+
+function emitGroupsChanged() {
+  for (const cb of Array.from(groupListeners)) {
+    try {
+      cb();
+    } catch (err) {
+      console.warn('groupService listener error', err);
+    }
+  }
+}
+
+export function onGroupsChanged(cb: () => void) {
+  groupListeners.add(cb);
+  return () => groupListeners.delete(cb);
+}
+
+export function triggerGroupsRefresh() {
+  emitGroupsChanged();
+}
+
 function getEndpoint(path: string) {
   return `${getBackendURL()}${path}`;
 }
@@ -120,6 +142,7 @@ export async function appendGroupId(id: string): Promise<void> {
   if (ids.includes(id)) return;
   ids.unshift(id);
   await saveStoredGroupIds(ids);
+  emitGroupsChanged();
 }
 
 export async function removeGroupId(id: string): Promise<void> {
@@ -127,6 +150,7 @@ export async function removeGroupId(id: string): Promise<void> {
   const filtered = ids.filter((existing) => existing !== id);
   if (filtered.length !== ids.length) {
     await saveStoredGroupIds(filtered);
+    emitGroupsChanged();
   }
 }
 

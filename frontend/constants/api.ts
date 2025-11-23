@@ -1,5 +1,4 @@
 export const getBackendURL = () => {
-  console.log(window.location.origin);
   if (typeof window !== 'undefined') {
     const origin = window.location.origin;
     // If origin contains exp.direct (Expo tunnel), use dev.splitsmart.de

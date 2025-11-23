@@ -16,6 +16,7 @@ export default function HamburgerButton({
       style={styles.button}
       accessibilityLabel="Open menu"
       accessibilityRole="button"
+      hitSlop={8}
     >
       <View style={[styles.line, { backgroundColor: color }]} />
       <View style={[styles.line, { backgroundColor: color }]} />
@@ -26,11 +27,12 @@ export default function HamburgerButton({
 
 const styles = StyleSheet.create({
   button: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 4,
+    borderRadius: 20,
+    paddingBottom: 3,
   },
   line: {
     width: 22,

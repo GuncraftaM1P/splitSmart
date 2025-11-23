@@ -13,9 +13,8 @@ import {
   GroupSummary,
   loadValidatedGroups,
   createGroup as createRemoteGroup,
-  deleteGroup as deleteRemoteGroup,
   appendGroupId,
-  removeGroupId,
+  onGroupsChanged,
 } from '@/lib/groupService';
 
 type SidebarProps = {
@@ -49,6 +48,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const [loading, setLoading] = React.useState(false);
   const [creating, setCreating] = React.useState(false);
   const [deletingIds, setDeletingIds] = React.useState<string[]>([]);
+  const safeTop = Math.max(insets.top, 20);
 
   // Load persisted groups from shared helper
   React.useEffect(() => {
@@ -68,22 +68,23 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
     hydrate();
 
+    const unsubscribe = onGroupsChanged(() => {
+      (async () => {
+        try {
+          const { groups: storedGroups } = await loadValidatedGroups();
+          if (!mounted) return;
+          setGroups(storedGroups);
+        } catch (err) {
+          console.warn('Error refreshing groups from subscription', err);
+        }
+      })();
+    });
+
     return () => {
       mounted = false;
+      unsubscribe();
     };
   }, []);
-
-  async function handleDeleteGroup(id: string) {
-    setDeletingIds((prev) => [...prev, id]);
-    try {
-      const success = await deleteRemoteGroup(id);
-      if (!success) return;
-      await removeGroupId(id);
-      setGroups((prev) => prev.filter((g) => g.id !== id));
-    } finally {
-      setDeletingIds((prev) => prev.filter((x) => x !== id));
-    }
-  }
 
   async function handleCreateGroup() {
     setCreating(true);
@@ -104,20 +105,71 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
     { label: 'Explore', href: '/explore', icon: '🔍' },
   ] as const;
 
+  if (collapsed) {
+    return (
+      <View style={[styles.root, styles.rootCollapsed]}>
+        <View style={[styles.collapsedHeader, { paddingTop: safeTop }]}>
+          {Platform.OS === 'web' && (
+            <Pressable
+              onPress={onToggle}
+              accessibilityLabel="Expand sidebar"
+              style={styles.toggleButton}
+            >
+              <Text style={styles.toggleText}>›</Text>
+            </Pressable>
+          )}
+        </View>
+
+        <View style={styles.collapsedNavSection}>
+          {items.map((i) => (
+            <Link key={i.href} href={i.href} asChild>
+              <Pressable
+                style={styles.collapsedIconButton}
+                accessibilityLabel={i.label}
+              >
+                <Text style={styles.collapsedEmoji}>{i.icon}</Text>
+              </Pressable>
+            </Link>
+          ))}
+        </View>
+
+        <View style={styles.collapsedDivider} />
+
+        <View style={styles.collapsedGroupsSection}>
+          {loading ? (
+            <ActivityIndicator color="#007AFF" size="small" />
+          ) : groups.length === 0 ? (
+            <Text style={styles.collapsedEmpty}>—</Text>
+          ) : (
+            groups.map((g) => (
+              <Link key={g.id} href={`/group/${g.id}` as any} asChild>
+                <Pressable
+                  style={styles.collapsedIconButton}
+                  accessibilityLabel={g.name}
+                  disabled={deletingIds.includes(g.id)}
+                >
+                  <Text style={styles.collapsedEmoji}>👥</Text>
+                </Pressable>
+              </Link>
+            ))
+          )}
+        </View>
+      </View>
+    );
+  }
+
   return (
-    <View style={[styles.root, collapsed ? styles.rootCollapsed : null]}>
+    <View style={styles.root}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
-        {!collapsed && <Text style={styles.appTitle}>SplitSmart</Text>}
+      <View style={[styles.header, { paddingTop: safeTop }]}>
+        <Text style={styles.appTitle}>SplitSmart</Text>
         {Platform.OS === 'web' && (
           <Pressable
             onPress={onToggle}
-            accessibilityLabel={
-              collapsed ? 'Expand sidebar' : 'Collapse sidebar'
-            }
+            accessibilityLabel="Collapse sidebar"
             style={styles.toggleButton}
           >
-            <Text style={styles.toggleText}>{collapsed ? '›' : '‹'}</Text>
+            <Text style={styles.toggleText}>‹</Text>
           </Pressable>
         )}
       </View>
@@ -130,7 +182,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
               <View style={styles.navIconContainer}>
                 <Text style={styles.navIcon}>{i.icon}</Text>
               </View>
-              {!collapsed && <Text style={styles.navLabel}>{i.label}</Text>}
+              <Text style={styles.navLabel}>{i.label}</Text>
             </Pressable>
           </Link>
         ))}
@@ -138,13 +190,13 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
       {/* Groups section */}
       <View style={styles.groupsSection}>
-        {!collapsed && <Text style={styles.sectionTitle}>Gruppen</Text>}
+        <Text style={styles.sectionTitle}>Gruppen</Text>
 
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator color="#007AFF" />
           </View>
-        ) : groups.length === 0 && !collapsed ? (
+        ) : groups.length === 0 ? (
           <Text style={styles.emptyText}>Keine Gruppen</Text>
         ) : (
           groups.map((g) => (
@@ -158,11 +210,9 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
                 <View style={styles.groupIconContainer}>
                   <Text style={styles.groupIcon}>👥</Text>
                 </View>
-                {!collapsed && (
-                  <Text style={styles.groupName} numberOfLines={1}>
-                    {g.name}
-                  </Text>
-                )}
+                <Text style={styles.groupName} numberOfLines={1}>
+                  {g.name}
+                </Text>
               </Pressable>
             </Link>
           ))
@@ -172,16 +222,13 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
         <Pressable
           onPress={handleCreateGroup}
           accessibilityLabel="Create new group"
-          style={[
-            styles.addGroupButton,
-            collapsed && styles.addGroupButtonCollapsed,
-          ]}
+          style={styles.addGroupButton}
           disabled={creating}
         >
           <View style={styles.groupIconContainer}>
             <Text style={styles.addGroupIcon}>{creating ? '⋯' : '+'}</Text>
           </View>
-          {!collapsed && <Text style={styles.addGroupLabel}>Neue Gruppe</Text>}
+          <Text style={styles.addGroupLabel}>Neue Gruppe</Text>
         </Pressable>
       </View>
     </View>
@@ -191,10 +238,24 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#f7f8fa',
   },
   rootCollapsed: {
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
+    alignItems: 'stretch',
+  },
+  collapsedHeader: {
+    width: '100%',
+    paddingHorizontal: 12,
+    paddingBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  collapsedTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#000',
   },
   header: {
     flexDirection: 'row',
@@ -211,17 +272,20 @@ const styles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   toggleButton: {
-    width: 32,
-    height: 32,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 6,
     backgroundColor: '#f5f5f5',
+    padding: 0,
   },
   toggleText: {
     fontSize: 18,
     color: '#666',
     fontWeight: '400',
+    lineHeight: 36,
+    textAlign: 'center',
   },
 
   // Navigation section
@@ -230,6 +294,13 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     marginBottom: 8,
   },
+  collapsedNavSection: {
+    paddingHorizontal: 8,
+    paddingBottom: 12,
+    width: '100%',
+    flexDirection: 'column',
+    alignItems: 'center',
+  },
   navItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -237,6 +308,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 8,
     marginVertical: 2,
+    backgroundColor: '#fff',
+  },
+  collapsedIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+    borderWidth: 0,
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  collapsedEmoji: {
+    fontSize: 20,
+    lineHeight: 22,
+    textAlign: 'center',
+  },
+  collapsedDivider: {
+    width: 28,
+    height: 1,
+    backgroundColor: '#e5e5e5',
+    marginVertical: 8,
+    alignSelf: 'center',
+  },
+  collapsedGroupsSection: {
+    flex: 1,
+    width: '100%',
+    paddingHorizontal: 8,
+    alignItems: 'center',
+  },
+  collapsedEmpty: {
+    color: '#bbb',
+    fontSize: 16,
   },
   navIconContainer: {
     width: 28,
@@ -295,6 +404,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: '#e5e5e5',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
   },
   groupIconContainer: {
     width: 28,
@@ -327,10 +441,6 @@ const styles = StyleSheet.create({
     borderColor: '#e5e5e5',
     borderStyle: 'dashed',
     marginTop: 4,
-  },
-  addGroupButtonCollapsed: {
-    justifyContent: 'center',
-    paddingHorizontal: 0,
   },
   addGroupIcon: {
     fontSize: 20,

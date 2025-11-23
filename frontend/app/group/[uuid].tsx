@@ -5,10 +5,12 @@ import {
   View,
   Text,
   useWindowDimensions,
+  Platform,
 } from 'react-native';
-import { useLocalSearchParams, Stack } from 'expo-router';
-import { useState, useRef, useContext, useCallback } from 'react';
+import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
+import { useState, useRef, useContext, useCallback, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
+import { Alert } from 'react-native';
 
 import { getBackendURL } from '@/constants/api';
 import { IconSymbol } from '@/components/ui/icon-symbol';
@@ -16,12 +18,19 @@ import HamburgerButton from '@/components/HamburgerButton';
 import { DrawerContext } from '../_layout';
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { fetchGroupDetails, GroupDetails } from '@/lib/groupService';
+import {
+  fetchGroupDetails,
+  GroupDetails,
+  deleteGroup as deleteRemoteGroup,
+  removeGroupId,
+} from '@/lib/groupService';
 
 export default function GroupScreen() {
   const { uuid } = useLocalSearchParams<{ uuid: string }>();
   const [data, setData] = useState<GroupDetails | null>(null);
   const [error, setError] = useState<string>('');
+  const [deleting, setDeleting] = useState(false);
+  const [groupMissing, setGroupMissing] = useState(false);
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editedName, setEditedName] = useState('');
@@ -34,11 +43,18 @@ export default function GroupScreen() {
   const { toggleDrawer } = useContext(DrawerContext);
   const colorScheme = useColorScheme();
   const showHamburger = width < 768;
+  const router = useRouter();
 
   const backendURL = getBackendURL();
 
+  useEffect(() => {
+    setGroupMissing(false);
+    setError('');
+    setData(null);
+  }, [uuid]);
+
   const fetchGroupInfo = async () => {
-    if (!uuid || !isMountedRef.current) return;
+    if (!uuid || !isMountedRef.current || groupMissing) return;
 
     try {
       const json = await fetchGroupDetails(uuid);
@@ -59,7 +75,18 @@ export default function GroupScreen() {
     } catch (err: any) {
       if (!isMountedRef.current) return;
       const status = err?.status;
-      setError(status === 404 ? 'Group not found' : 'Error loading group');
+      if (status === 404) {
+        setGroupMissing(true);
+        setError('Group not found');
+        setData(null);
+        if (pollRef.current) {
+          clearInterval(pollRef.current);
+          pollRef.current = null;
+        }
+        return;
+      }
+
+      setError('Error loading group');
       console.error('Error fetching data:', err);
     }
   };
@@ -69,7 +96,7 @@ export default function GroupScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      if (!uuid) return;
+      if (!uuid || groupMissing) return;
 
       isMountedRef.current = true;
       fetchGroupInfo();
@@ -85,7 +112,7 @@ export default function GroupScreen() {
           pollRef.current = null;
         }
       };
-    }, [uuid]),
+    }, [uuid, groupMissing]),
   );
 
   const sendPatchUpdate = async (updates: {
@@ -110,7 +137,7 @@ export default function GroupScreen() {
       }
       setError('');
       return true;
-    } catch (err) {
+    } catch {
       setError('Update failed');
       return false;
     }
@@ -153,76 +180,154 @@ export default function GroupScreen() {
     setIsEditingDescription(!isEditingDescription);
   };
 
+  const handleDeleteGroup = () => {
+    if (!uuid) return;
+
+    const doDelete = async () => {
+      setDeleting(true);
+      try {
+        const ok = await deleteRemoteGroup(uuid);
+        if (!ok) {
+          setError('Löschen fehlgeschlagen');
+          setDeleting(false);
+          return;
+        }
+        await removeGroupId(uuid);
+        router.replace('/');
+      } catch (err) {
+        console.error('Error deleting group', err);
+        setError('Löschen fehlgeschlagen');
+      } finally {
+        setDeleting(false);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(
+        'Möchtest du diese Gruppe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.',
+      );
+      if (!confirmed) return;
+      void doDelete();
+      return;
+    }
+
+    Alert.alert(
+      'Gruppe löschen',
+      'Möchtest du diese Gruppe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.',
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        {
+          text: 'Löschen',
+          style: 'destructive',
+          onPress: () => void doDelete(),
+        },
+      ],
+    );
+  };
+
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: '',
-          headerBackButtonDisplayMode: 'minimal',
-          headerShadowVisible: false,
-          headerStyle: {
-            backgroundColor: '#fff',
-          },
-          headerTitleStyle: {
-            fontSize: 18,
-            fontWeight: '600',
-          },
-          headerLeft: showHamburger
-            ? () => (
-                <HamburgerButton
-                  onPress={toggleDrawer}
-                  color={Colors[colorScheme ?? 'light'].text}
-                />
-              )
-            : undefined,
-        }}
-      />
-      <View style={styles.container}>
-        <View style={styles.row}>
-          {isEditingName ? (
-            <TextInput
-              style={styles.titleInput}
-              value={editedName}
-              onChangeText={setEditedName}
-              autoFocus
-              onSubmitEditing={handleEditNameClick}
-            />
-          ) : (
-            <Text style={styles.title}>{data?.name ?? 'Lädt...'}</Text>
-          )}
-          <Pressable onPress={handleEditNameClick} style={styles.editButton}>
-            <IconSymbol size={20} name="pencil" color="#999" />
-          </Pressable>
-        </View>
-
-        <View style={styles.row}>
-          {isEditingDescription ? (
-            <TextInput
-              style={styles.descriptionInput}
-              value={editedDescription}
-              onChangeText={setEditedDescription}
-              multiline
-              autoFocus
-              onSubmitEditing={handleEditDescriptionClick}
-              onKeyPress={({ nativeEvent }) => {
-                if (nativeEvent.key === 'Enter') {
-                  handleEditDescriptionClick();
-                }
-              }}
-            />
-          ) : (
-            <Text style={styles.description}>
-              {data?.description ?? 'Beschreibung lädt...'}
-            </Text>
-          )}
+      {error === 'Group not found' ? (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorTitle}>
+            Die Gruppe, auf die du zugreifen möchtest, existiert nicht oder
+            wurde kürzlich gelöscht!
+          </Text>
           <Pressable
-            onPress={handleEditDescriptionClick}
-            style={styles.editButton}
+            onPress={() => router.replace('/')}
+            style={styles.errorButton}
           >
-            <IconSymbol size={20} name="pencil" color="#999" />
+            <Text style={styles.errorButtonText}>Zur Startseite</Text>
           </Pressable>
         </View>
-      </View>
+      ) : (
+        <>
+          <Stack.Screen
+            options={{
+              title: '',
+              headerBackButtonDisplayMode: 'minimal',
+              headerShadowVisible: false,
+              headerStyle: {
+                backgroundColor: '#fff',
+              },
+              headerTitleStyle: {
+                fontSize: 18,
+                fontWeight: '600',
+              },
+              headerLeft: showHamburger
+                ? () => (
+                    <HamburgerButton
+                      onPress={toggleDrawer}
+                      color={Colors[colorScheme ?? 'light'].text}
+                    />
+                  )
+                : undefined,
+            }}
+          />
+
+          <View style={styles.container}>
+            <View style={styles.row}>
+              {isEditingName ? (
+                <TextInput
+                  style={styles.titleInput}
+                  value={editedName}
+                  onChangeText={setEditedName}
+                  autoFocus
+                  onSubmitEditing={handleEditNameClick}
+                />
+              ) : (
+                <Text style={styles.title}>{data?.name ?? 'Lädt...'}</Text>
+              )}
+              <Pressable
+                onPress={handleEditNameClick}
+                style={styles.editButton}
+              >
+                <IconSymbol size={20} name="pencil" color="#999" />
+              </Pressable>
+            </View>
+
+            <View style={styles.row}>
+              {isEditingDescription ? (
+                <TextInput
+                  style={styles.descriptionInput}
+                  value={editedDescription}
+                  onChangeText={setEditedDescription}
+                  multiline
+                  autoFocus
+                  onSubmitEditing={handleEditDescriptionClick}
+                  onKeyPress={({ nativeEvent }) => {
+                    if (nativeEvent.key === 'Enter') {
+                      handleEditDescriptionClick();
+                    }
+                  }}
+                />
+              ) : (
+                <Text style={styles.description}>
+                  {data?.description ?? 'Beschreibung lädt...'}
+                </Text>
+              )}
+              <Pressable
+                onPress={handleEditDescriptionClick}
+                style={styles.editButton}
+              >
+                <IconSymbol size={20} name="pencil" color="#999" />
+              </Pressable>
+            </View>
+
+            <View style={styles.row}>
+              <Pressable
+                onPress={handleDeleteGroup}
+                style={styles.deleteButton}
+                disabled={deleting}
+              >
+                <Text style={styles.deleteButtonText}>
+                  {deleting ? 'Lösche…' : 'Gruppe löschen'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </>
+      )}
     </>
   );
 }
@@ -274,5 +379,49 @@ const styles = StyleSheet.create({
   },
   editButton: {
     marginLeft: 4,
+  },
+  deleteButton: {
+    backgroundColor: '#f44336',
+    borderWidth: 0,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  errorContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: '#fff',
+  },
+  errorTitle: {
+    fontSize: 16,
+    color: '#111',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  errorButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    shadowColor: '#007AFF',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
+  },
+  errorButtonText: {
+    color: '#fff',
+    fontWeight: '600',
   },
 });

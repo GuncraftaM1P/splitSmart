@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { StyleSheet, TextInput, Pressable } from 'react-native';
+import { StyleSheet, TextInput, Pressable , Text } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
@@ -7,7 +7,6 @@ import { ThemedView } from '@/components/themed-view';
 import { router } from 'expo-router';
 
 import { useState } from 'react';
-import { Text } from 'react-native';
 
 export default function HomeScreen() {
   const [inputUuid, setInputUuid] = useState('');
