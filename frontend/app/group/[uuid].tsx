@@ -57,14 +57,25 @@ export default function GroupScreen() {
   const insets = useSafeAreaInsets();
 
   // PanResponder to detect left->right swipe from left edge to open sidebar
+  const isEditingNameRef = useRef(isEditingName);
+  const isEditingDescriptionRef = useRef(isEditingDescription);
+
+  useEffect(() => {
+    isEditingNameRef.current = isEditingName;
+  }, [isEditingName]);
+
+  useEffect(() => {
+    isEditingDescriptionRef.current = isEditingDescription;
+  }, [isEditingDescription]);
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: (e, gs) => {
         // start only when touching near left edge on mobile and not editing
         return (
           showHamburger &&
-          !isEditingName &&
-          !isEditingDescription &&
+          !isEditingNameRef.current &&
+          !isEditingDescriptionRef.current &&
           (gs.x0 ?? 0) < 30
         );
       },
@@ -72,8 +83,8 @@ export default function GroupScreen() {
         // start when horizontal movement dominates and to the right
         return (
           showHamburger &&
-          !isEditingName &&
-          !isEditingDescription &&
+          !isEditingNameRef.current &&
+          !isEditingDescriptionRef.current &&
           Math.abs(gs.dx) > 6 &&
           Math.abs(gs.dx) > Math.abs(gs.dy) &&
           gs.dx > 6 &&
@@ -150,6 +161,8 @@ export default function GroupScreen() {
       fetchGroupInfo();
 
       pollRef.current = setInterval(() => {
+        if (isEditingNameRef.current || isEditingDescriptionRef.current) return;
+
         fetchGroupInfo();
       }, 5000);
 
@@ -207,7 +220,7 @@ export default function GroupScreen() {
         setData((old) => (old ? { ...old, name: trimmedName } : old));
       }
     }
-    setIsEditingName(!isEditingName);
+    setIsEditingName((v) => !v);
   };
 
   const handleEditDescriptionClick = async () => {
@@ -225,7 +238,7 @@ export default function GroupScreen() {
         );
       }
     }
-    setIsEditingDescription(!isEditingDescription);
+    setIsEditingDescription((v) => !v);
   };
 
   const handleDeleteGroup = () => {
@@ -250,68 +263,27 @@ export default function GroupScreen() {
       }
     };
 
-    // Block deleting the only stored group
-    (async () => {
-      try {
-        const ids = await loadStoredGroupIds();
-        if (ids.length <= 1) {
-          // Show German message: cannot delete the only group
-          const message = 'Du kannst deine einzige Gruppe nicht löschen.';
-          if (Platform.OS === 'web') {
-            window.alert(message);
-            return;
-          }
-          Alert.alert('Löschen nicht möglich', message, [{ text: 'OK' }]);
-          return;
-        }
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(
+        'Möchtest du diese Gruppe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.',
+      );
+      if (!confirmed) return;
+      void doDelete();
+      return;
+    }
 
-        if (Platform.OS === 'web') {
-          const confirmed = window.confirm(
-            'Möchtest du diese Gruppe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.',
-          );
-          if (!confirmed) return;
-          void doDelete();
-          return;
-        }
-
-        Alert.alert(
-          'Gruppe löschen',
-          'Möchtest du diese Gruppe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden?',
-          [
-            { text: 'Abbrechen', style: 'cancel' },
-            {
-              text: 'Löschen',
-              style: 'destructive',
-              onPress: () => void doDelete(),
-            },
-          ],
-        );
-      } catch (err) {
-        console.error('Fehler beim Prüfen der gespeicherten Gruppen:', err);
-        // Fall back to confirmation if checking storage fails
-        if (Platform.OS === 'web') {
-          const confirmed = window.confirm(
-            'Möchtest du diese Gruppe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.',
-          );
-          if (!confirmed) return;
-          void doDelete();
-          return;
-        }
-
-        Alert.alert(
-          'Gruppe löschen',
-          'Möchtest du diese Gruppe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden?',
-          [
-            { text: 'Abbrechen', style: 'cancel' },
-            {
-              text: 'Löschen',
-              style: 'destructive',
-              onPress: () => void doDelete(),
-            },
-          ],
-        );
-      }
-    })();
+    Alert.alert(
+      'Gruppe löschen',
+      'Möchtest du diese Gruppe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden?',
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        {
+          text: 'Löschen',
+          style: 'destructive',
+          onPress: () => void doDelete(),
+        },
+      ],
+    );
   };
 
   const handleAddMember = async () => {
@@ -370,9 +342,9 @@ export default function GroupScreen() {
               },
             }}
           />
-          
+
           <View style={styles.container} {...panResponder.panHandlers}>
-            <View style={[styles.row, styles.rowWithHamburger]}> 
+            <View style={[styles.row, styles.rowWithHamburger]}>
               {showHamburger && (
                 <View style={styles.hamburgerContainer}>
                   <HamburgerButton
@@ -382,7 +354,10 @@ export default function GroupScreen() {
                 </View>
               )}
 
-              <View style={styles.titleCenterContainer} pointerEvents="none">
+              <View
+                style={styles.titleCenterContainer}
+                pointerEvents={isEditingName ? 'auto' : 'none'}
+              >
                 {isEditingName ? (
                   <TextInput
                     style={styles.titleInput}
@@ -409,7 +384,7 @@ export default function GroupScreen() {
                   styles.editButtonAbsolute,
                   {
                     left: Math.min(
-                      Math.max((width / 2) + titleWidth / 2 + 8, 56),
+                      Math.max(width / 2 + titleWidth / 2 + 8, 56),
                       // keep inside screen with 8px margin and ~40px button
                       Math.max(width - 40 - 8, 56),
                     ),
@@ -426,7 +401,10 @@ export default function GroupScreen() {
             <View style={styles.headerSpacer} />
 
             <View style={styles.row}>
-              <View style={styles.titleCenterContainer} pointerEvents="none">
+              <View
+                style={styles.titleCenterContainer}
+                pointerEvents={isEditingDescription ? 'auto' : 'none'}
+              >
                 {isEditingDescription ? (
                   <TextInput
                     style={styles.descriptionInput}
@@ -435,7 +413,9 @@ export default function GroupScreen() {
                     multiline
                     autoFocus
                     onSubmitEditing={handleEditDescriptionClick}
-                    onLayout={(e) => setDescriptionWidth(e.nativeEvent.layout.width)}
+                    onLayout={(e) =>
+                      setDescriptionWidth(e.nativeEvent.layout.width)
+                    }
                     onKeyPress={({ nativeEvent }) => {
                       if (nativeEvent.key === 'Enter') {
                         handleEditDescriptionClick();
@@ -445,7 +425,9 @@ export default function GroupScreen() {
                 ) : (
                   <Text
                     style={styles.description}
-                    onLayout={(e) => setDescriptionWidth(e.nativeEvent.layout.width)}
+                    onLayout={(e) =>
+                      setDescriptionWidth(e.nativeEvent.layout.width)
+                    }
                   >
                     {data?.description ?? 'Beschreibung lädt...'}
                   </Text>
@@ -458,7 +440,7 @@ export default function GroupScreen() {
                   styles.editButtonAbsolute,
                   {
                     left: Math.min(
-                      Math.max((width / 2) + descriptionWidth / 2 + 8, 56),
+                      Math.max(width / 2 + descriptionWidth / 2 + 8, 56),
                       Math.max(width - 40 - 8, 56),
                     ),
                     minWidth: 40,

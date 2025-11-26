@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Platform,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,24 +17,33 @@ import {
   loadValidatedGroups,
   createGroup as createRemoteGroup,
   appendGroupId,
+  fetchGroupSummaryWithRetry,
   onGroupsChanged,
 } from '@/lib/groupService';
 
 type SidebarProps = {
   collapsed?: boolean;
   onToggle?: () => void;
+  ignoreSafeArea?: boolean;
 };
 
-export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
+export default function Sidebar({
+  collapsed = false,
+  onToggle,
+  ignoreSafeArea = false,
+}: SidebarProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const [groups, setGroups] = React.useState<GroupSummary[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [creating, setCreating] = React.useState(false);
   const [deletingIds, setDeletingIds] = React.useState<string[]>([]);
-  const safeTop = Math.max(insets.top, 20);
+  const safeTop = ignoreSafeArea ? 0 : Math.max(insets.top, 20);
   const version =
     (appConfig as any)?.expo?.version ?? (appConfig as any)?.version ?? '?.?.?';
+  const [joinId, setJoinId] = React.useState('');
+  const [joining, setJoining] = React.useState(false);
+  const [joinError, setJoinError] = React.useState<string | null>(null);
 
   // Load persisted groups from shared helper
   React.useEffect(() => {
@@ -183,6 +193,63 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           </View>
           <Text style={styles.addGroupLabel}>Neue Gruppe</Text>
         </Pressable>
+        {/* Join group by UUID */}
+        <View style={styles.joinContainer}>
+          <TextInput
+            value={joinId}
+            onChangeText={(t) => {
+              setJoinId(t);
+              if (joinError) setJoinError(null);
+            }}
+            placeholder="Gruppen-ID..."
+            style={styles.joinInput}
+            editable={!joining}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType={Platform.OS === 'web' ? 'default' : 'default'}
+          />
+          <Pressable
+            onPress={async () => {
+              const id = joinId.trim();
+              if (!id) {
+                setJoinError('Bitte eine gültige UUID eingeben.');
+                return;
+              }
+              setJoining(true);
+              setJoinError(null);
+              try {
+                const summary = await fetchGroupSummaryWithRetry(id);
+                if (summary === null) {
+                  setJoinError('Gruppe nicht gefunden. Bitte prüfen.');
+                } else if (summary === undefined) {
+                  setJoinError('Fehler beim Prüfen der Gruppe.');
+                } else {
+                  await appendGroupId(id);
+                  setGroups((prev) => [
+                    summary,
+                    ...prev.filter((g) => g.id !== id),
+                  ]);
+                  setJoinId('');
+                  router.replace(`/group/${id}`);
+                }
+              } catch (err) {
+                console.warn('Join group error', err);
+                setJoinError('Fehler beim Beitreten zur Gruppe.');
+              } finally {
+                setJoining(false);
+              }
+            }}
+            style={styles.joinButton}
+            disabled={joining}
+          >
+            <Text style={styles.joinButtonText}>
+              {joining ? '...' : 'Beitreten'}
+            </Text>
+          </Pressable>
+        </View>
+        {joinError ? (
+          <Text style={styles.joinErrorText}>{joinError}</Text>
+        ) : null}
       </View>
       <View style={styles.footer}>
         <Text style={styles.versionText}>v{version}</Text>
@@ -429,5 +496,38 @@ const styles = StyleSheet.create({
   versionText: {
     fontSize: 12,
     color: '#999',
+  },
+  joinContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  joinInput: {
+    flex: 1,
+    height: 40,
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    backgroundColor: '#fff',
+    marginRight: 8,
+  },
+  joinButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  joinButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  joinErrorText: {
+    color: '#cc0033',
+    fontSize: 12,
+    marginTop: 8,
+    marginLeft: 4,
   },
 });
