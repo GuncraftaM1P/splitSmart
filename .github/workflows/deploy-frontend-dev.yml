@@ -26,6 +26,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install Wrangler
+        run: npm install -g wrangler@latest
+
       - name: Build web export
         run: npx expo export --platform web
 
