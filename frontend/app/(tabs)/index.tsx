@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import { StyleSheet, TextInput, Pressable , Text } from 'react-native';
+import { StyleSheet, TextInput, Pressable, Text } from 'react-native';
 
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
@@ -26,7 +26,7 @@ export default function HomeScreen() {
           style={styles.reactLogo}
         />
       }
-      >
+    >
       <ThemedView style={styles.titleContainer}>
         <ThemedText type="title">Enter Group UUID</ThemedText>
       </ThemedView>
