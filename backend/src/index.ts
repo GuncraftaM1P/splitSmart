@@ -6,7 +6,7 @@ import {
   handleAddMember,
   handleRemoveMember,
 } from './routes/groups.js';
-import { handlePatchUpdate } from './routes/expenses.js';
+import { handleExpensesPatchUpdate } from './routes/expenses.js';
 import openapi from './openapi.json';
 
 export const corsHeaders = {
@@ -131,5 +131,5 @@ const routes: Record<
   'DELETE:/groups/delete': handleDelete,
   'POST:/groups/add-member': handleAddMember,
   'DELETE:/groups/remove-member': handleRemoveMember,
-  'PATCH:/groups/expenses': handlePatchUpdate,
+  'PATCH:/groups/expenses': handleExpensesPatchUpdate,
 };
