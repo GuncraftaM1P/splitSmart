@@ -216,7 +216,10 @@ export async function deleteGroup(id: string): Promise<boolean> {
   }
 }
 
-export async function addGroupMember(groupId: string, name: string): Promise<boolean> {
+export async function addGroupMember(
+  groupId: string,
+  name: string,
+): Promise<boolean> {
   try {
     const res = await fetch(getEndpoint(`groups/${groupId}/add-member`), {
       method: 'POST',
@@ -234,7 +237,10 @@ export async function addGroupMember(groupId: string, name: string): Promise<boo
   }
 }
 
-export async function removeGroupMember(groupId: string, name: string): Promise<boolean> {
+export async function removeGroupMember(
+  groupId: string,
+  name: string,
+): Promise<boolean> {
   try {
     const res = await fetch(getEndpoint(`groups/${groupId}/remove-member`), {
       method: 'DELETE',

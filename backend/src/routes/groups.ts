@@ -10,7 +10,9 @@ export async function handleAddMember(
   groupId: string,
 ): Promise<Response> {
   const db = drizzle(env.prod_db);
-  const payload = (await request.json().catch(() => null)) as { name?: string } | null;
+  const payload = (await request.json().catch(() => null)) as {
+    name?: string;
+  } | null;
   if (!payload || typeof payload.name !== 'string' || !payload.name.trim()) {
     return new Response('Missing or invalid name', { status: 400 });
   }
@@ -19,7 +21,11 @@ export async function handleAddMember(
     return new Response('Name too long', { status: 400 });
   }
   // Fetch group
-  const group = await db.select().from(groupsTable).where(eq(groupsTable.id, groupId)).get();
+  const group = await db
+    .select()
+    .from(groupsTable)
+    .where(eq(groupsTable.id, groupId))
+    .get();
   if (!group) {
     return new Response('Group not found', { status: 404 });
   }
@@ -28,7 +34,10 @@ export async function handleAddMember(
     return new Response('Member already exists', { status: 409 });
   }
   members.push(name);
-  await db.update(groupsTable).set({ members }).where(eq(groupsTable.id, groupId));
+  await db
+    .update(groupsTable)
+    .set({ members })
+    .where(eq(groupsTable.id, groupId));
   return new Response('Member added', { status: 200 });
 }
 
@@ -38,13 +47,19 @@ export async function handleRemoveMember(
   groupId: string,
 ): Promise<Response> {
   const db = drizzle(env.prod_db);
-  const payload = (await request.json().catch(() => null)) as { name?: string } | null;
+  const payload = (await request.json().catch(() => null)) as {
+    name?: string;
+  } | null;
   if (!payload || typeof payload.name !== 'string' || !payload.name.trim()) {
     return new Response('Missing or invalid name', { status: 400 });
   }
   const name = payload.name.trim();
   // Fetch group
-  const group = await db.select().from(groupsTable).where(eq(groupsTable.id, groupId)).get();
+  const group = await db
+    .select()
+    .from(groupsTable)
+    .where(eq(groupsTable.id, groupId))
+    .get();
   if (!group) {
     return new Response('Group not found', { status: 404 });
   }
@@ -52,8 +67,11 @@ export async function handleRemoveMember(
   if (!members.includes(name)) {
     return new Response('Member not found', { status: 404 });
   }
-  const newMembers = members.filter(m => m !== name);
-  await db.update(groupsTable).set({ members: newMembers }).where(eq(groupsTable.id, groupId));
+  const newMembers = members.filter((m) => m !== name);
+  await db
+    .update(groupsTable)
+    .set({ members: newMembers })
+    .where(eq(groupsTable.id, groupId));
   return new Response('Member removed', { status: 200 });
 }
 
