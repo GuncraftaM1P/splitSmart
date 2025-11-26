@@ -6,9 +6,11 @@ import {
   Text,
   useWindowDimensions,
   Platform,
+  PanResponder,
 } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useState, useRef, useContext, useCallback, useEffect } from 'react';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { Alert } from 'react-native';
 
@@ -24,6 +26,7 @@ import {
   deleteGroup as deleteRemoteGroup,
   removeGroupId,
 } from '@/lib/groupService';
+import { loadStoredGroupIds } from '@/lib/groupService';
 
 export default function GroupScreen() {
   const { uuid } = useLocalSearchParams<{ uuid: string }>();
@@ -38,12 +41,52 @@ export default function GroupScreen() {
   const [originalName, setOriginalName] = useState('');
   const [originalDescription, setOriginalDescription] = useState('');
   const isMountedRef = useRef(true);
+  const [titleWidth, setTitleWidth] = useState(0);
+  const [descriptionWidth, setDescriptionWidth] = useState(0);
 
   const { width } = useWindowDimensions();
   const { toggleDrawer } = useContext(DrawerContext);
   const colorScheme = useColorScheme();
   const showHamburger = width < 768;
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+
+  // PanResponder to detect left->right swipe from left edge to open sidebar
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: (e, gs) => {
+        // start only when touching near left edge on mobile and not editing
+        return (
+          showHamburger &&
+          !isEditingName &&
+          !isEditingDescription &&
+          (gs.x0 ?? 0) < 30
+        );
+      },
+      onMoveShouldSetPanResponder: (e, gs) => {
+        // start when horizontal movement dominates and to the right
+        return (
+          showHamburger &&
+          !isEditingName &&
+          !isEditingDescription &&
+          Math.abs(gs.dx) > 6 &&
+          Math.abs(gs.dx) > Math.abs(gs.dy) &&
+          gs.dx > 6 &&
+          (gs.x0 ?? 0) < 30
+        );
+      },
+      onPanResponderRelease: (e, gs) => {
+        // if swipe sufficiently right, open drawer
+        if (gs.dx > 60) {
+          try {
+            toggleDrawer();
+          } catch (err) {
+            // ignore
+          }
+        }
+      },
+    }),
+  ).current;
 
   const backendURL = getBackendURL();
 
@@ -202,27 +245,68 @@ export default function GroupScreen() {
       }
     };
 
-    if (Platform.OS === 'web') {
-      const confirmed = window.confirm(
-        'Möchtest du diese Gruppe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.',
-      );
-      if (!confirmed) return;
-      void doDelete();
-      return;
-    }
+    // Block deleting the only stored group
+    (async () => {
+      try {
+        const ids = await loadStoredGroupIds();
+        if (ids.length <= 1) {
+          // Show German message: cannot delete the only group
+          const message = 'Du kannst deine einzige Gruppe nicht löschen.';
+          if (Platform.OS === 'web') {
+            window.alert(message);
+            return;
+          }
+          Alert.alert('Löschen nicht möglich', message, [{ text: 'OK' }]);
+          return;
+        }
 
-    Alert.alert(
-      'Gruppe löschen',
-      'Möchtest du diese Gruppe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.',
-      [
-        { text: 'Abbrechen', style: 'cancel' },
-        {
-          text: 'Löschen',
-          style: 'destructive',
-          onPress: () => void doDelete(),
-        },
-      ],
-    );
+        if (Platform.OS === 'web') {
+          const confirmed = window.confirm(
+            'Möchtest du diese Gruppe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.',
+          );
+          if (!confirmed) return;
+          void doDelete();
+          return;
+        }
+
+        Alert.alert(
+          'Gruppe löschen',
+          'Möchtest du diese Gruppe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden?',
+          [
+            { text: 'Abbrechen', style: 'cancel' },
+            {
+              text: 'Löschen',
+              style: 'destructive',
+              onPress: () => void doDelete(),
+            },
+          ],
+        );
+      } catch (err) {
+        console.error('Fehler beim Prüfen der gespeicherten Gruppen:', err);
+        // Fall back to confirmation if checking storage fails
+        if (Platform.OS === 'web') {
+          const confirmed = window.confirm(
+            'Möchtest du diese Gruppe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.',
+          );
+          if (!confirmed) return;
+          void doDelete();
+          return;
+        }
+
+        Alert.alert(
+          'Gruppe löschen',
+          'Möchtest du diese Gruppe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden?',
+          [
+            { text: 'Abbrechen', style: 'cancel' },
+            {
+              text: 'Löschen',
+              style: 'destructive',
+              onPress: () => void doDelete(),
+            },
+          ],
+        );
+      }
+    })();
   };
 
   return (
@@ -254,70 +338,118 @@ export default function GroupScreen() {
                 fontSize: 18,
                 fontWeight: '600',
               },
-              headerLeft: showHamburger
-                ? () => (
-                    <HamburgerButton
-                      onPress={toggleDrawer}
-                      color={Colors[colorScheme ?? 'light'].text}
-                    />
-                  )
-                : undefined,
             }}
           />
-
-          <View style={styles.container}>
-            <View style={styles.row}>
-              {isEditingName ? (
-                <TextInput
-                  style={styles.titleInput}
-                  value={editedName}
-                  onChangeText={setEditedName}
-                  autoFocus
-                  onSubmitEditing={handleEditNameClick}
-                />
-              ) : (
-                <Text style={styles.title}>{data?.name ?? 'Lädt...'}</Text>
+          
+          <View style={styles.container} {...panResponder.panHandlers}>
+            <View style={[styles.row, styles.rowWithHamburger]}> 
+              {showHamburger && (
+                <View style={styles.hamburgerContainer}>
+                  <HamburgerButton
+                    onPress={toggleDrawer}
+                    color={Colors[colorScheme ?? 'light'].text}
+                  />
+                </View>
               )}
+
+              <View style={styles.titleCenterContainer} pointerEvents="none">
+                {isEditingName ? (
+                  <TextInput
+                    style={styles.titleInput}
+                    value={editedName}
+                    onChangeText={setEditedName}
+                    autoFocus
+                    onSubmitEditing={handleEditNameClick}
+                    onLayout={(e) => setTitleWidth(e.nativeEvent.layout.width)}
+                  />
+                ) : (
+                  <Text
+                    style={styles.title}
+                    onLayout={(e) => setTitleWidth(e.nativeEvent.layout.width)}
+                  >
+                    {data?.name ?? 'Lädt...'}
+                  </Text>
+                )}
+              </View>
+
+              {/* edit button positioned dynamically to hug right of title */}
               <Pressable
                 onPress={handleEditNameClick}
-                style={styles.editButton}
+                style={[
+                  styles.editButtonAbsolute,
+                  {
+                    left: Math.min(
+                      Math.max((width / 2) + titleWidth / 2 + 8, 56),
+                      // keep inside screen with 8px margin and ~40px button
+                      Math.max(width - 40 - 8, 56),
+                    ),
+                    minWidth: 40,
+                  },
+                ]}
+                accessibilityLabel="Edit group name"
+                hitSlop={8}
               >
                 <IconSymbol size={20} name="pencil" color="#999" />
               </Pressable>
             </View>
 
+            <View style={styles.headerSpacer} />
+
             <View style={styles.row}>
-              {isEditingDescription ? (
-                <TextInput
-                  style={styles.descriptionInput}
-                  value={editedDescription}
-                  onChangeText={setEditedDescription}
-                  multiline
-                  autoFocus
-                  onSubmitEditing={handleEditDescriptionClick}
-                  onKeyPress={({ nativeEvent }) => {
-                    if (nativeEvent.key === 'Enter') {
-                      handleEditDescriptionClick();
-                    }
-                  }}
-                />
-              ) : (
-                <Text style={styles.description}>
-                  {data?.description ?? 'Beschreibung lädt...'}
-                </Text>
-              )}
+              <View style={styles.titleCenterContainer} pointerEvents="none">
+                {isEditingDescription ? (
+                  <TextInput
+                    style={styles.descriptionInput}
+                    value={editedDescription}
+                    onChangeText={setEditedDescription}
+                    multiline
+                    autoFocus
+                    onSubmitEditing={handleEditDescriptionClick}
+                    onLayout={(e) => setDescriptionWidth(e.nativeEvent.layout.width)}
+                    onKeyPress={({ nativeEvent }) => {
+                      if (nativeEvent.key === 'Enter') {
+                        handleEditDescriptionClick();
+                      }
+                    }}
+                  />
+                ) : (
+                  <Text
+                    style={styles.description}
+                    onLayout={(e) => setDescriptionWidth(e.nativeEvent.layout.width)}
+                  >
+                    {data?.description ?? 'Beschreibung lädt...'}
+                  </Text>
+                )}
+              </View>
+
               <Pressable
                 onPress={handleEditDescriptionClick}
-                style={styles.editButton}
+                style={[
+                  styles.editButtonAbsolute,
+                  {
+                    left: Math.min(
+                      Math.max((width / 2) + descriptionWidth / 2 + 8, 56),
+                      Math.max(width - 40 - 8, 56),
+                    ),
+                    minWidth: 40,
+                  },
+                ]}
+                accessibilityLabel="Edit group description"
+                hitSlop={8}
               >
                 <IconSymbol size={20} name="pencil" color="#999" />
               </Pressable>
             </View>
 
-            <View style={styles.row}>
+            <View
+              style={[
+                styles.deleteFooter,
+                { bottom: Math.max(insets.bottom + 12, 16) },
+              ]}
+            >
               <Pressable
                 onPress={handleDeleteGroup}
-                style={styles.deleteButton}
+                style={[styles.deleteButton, { width: '100%' }]}
                 disabled={deleting}
               >
                 <Text style={styles.deleteButtonText}>
@@ -361,6 +493,45 @@ const styles = StyleSheet.create({
     padding: 4,
     textAlign: 'center',
     color: '#11181C',
+  },
+  titleCenterContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    pointerEvents: 'none',
+  },
+  hamburgerContainer: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    paddingLeft: 8,
+    zIndex: 10,
+  },
+  rowWithHamburger: {
+    marginTop: 8,
+    position: 'relative',
+  },
+  editButtonAbsolute: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    zIndex: 10,
+    paddingHorizontal: 8,
+  },
+  headerSpacer: {
+    height: 38,
+  },
+  deleteFooter: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    // bottom set dynamically to respect safe area
+    zIndex: 20,
   },
   description: {
     fontSize: 16,

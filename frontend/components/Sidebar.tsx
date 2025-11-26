@@ -7,8 +7,9 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { Link } from 'expo-router';
+import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import uuid from 'react-native-uuid';
 import {
   GroupSummary,
   loadValidatedGroups,
@@ -22,28 +23,9 @@ type SidebarProps = {
   onToggle?: () => void;
 };
 
-function generateUuid(): string {
-  // Prefer secure native implementation when available
-  try {
-    // @ts-ignore
-    if (typeof globalThis?.crypto?.randomUUID === 'function') {
-      // @ts-ignore
-      return globalThis.crypto.randomUUID();
-    }
-  } catch (_) {
-    // fall through
-  }
-
-  // Fallback simple UUID v4 generator (not cryptographically strong)
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
-
 export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [groups, setGroups] = React.useState<GroupSummary[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [creating, setCreating] = React.useState(false);
@@ -88,22 +70,19 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
   async function handleCreateGroup() {
     setCreating(true);
-    const id = generateUuid();
+    const id = uuid.v4() as string;
 
     try {
       const newGroup = await createRemoteGroup(id);
       if (!newGroup) return;
       await appendGroupId(id);
       setGroups((prev) => [newGroup, ...prev]);
+      // navigate to the new group as the active route (replace history)
+      router.replace(`/group/${id}`);
     } finally {
       setCreating(false);
     }
   }
-
-  const items = [
-    { label: 'Home', href: '/', icon: '🏠' },
-    { label: 'Explore', href: '/explore', icon: '🔍' },
-  ] as const;
 
   if (collapsed) {
     return (
@@ -120,21 +99,6 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           )}
         </View>
 
-        <View style={styles.collapsedNavSection}>
-          {items.map((i) => (
-            <Link key={i.href} href={i.href} asChild>
-              <Pressable
-                style={styles.collapsedIconButton}
-                accessibilityLabel={i.label}
-              >
-                <Text style={styles.collapsedEmoji}>{i.icon}</Text>
-              </Pressable>
-            </Link>
-          ))}
-        </View>
-
-        <View style={styles.collapsedDivider} />
-
         <View style={styles.collapsedGroupsSection}>
           {loading ? (
             <ActivityIndicator color="#007AFF" size="small" />
@@ -142,15 +106,15 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             <Text style={styles.collapsedEmpty}>—</Text>
           ) : (
             groups.map((g) => (
-              <Link key={g.id} href={`/group/${g.id}` as any} asChild>
-                <Pressable
-                  style={styles.collapsedIconButton}
-                  accessibilityLabel={g.name}
-                  disabled={deletingIds.includes(g.id)}
-                >
-                  <Text style={styles.collapsedEmoji}>👥</Text>
-                </Pressable>
-              </Link>
+              <Pressable
+                key={g.id}
+                style={styles.collapsedIconButton}
+                accessibilityLabel={g.name}
+                disabled={deletingIds.includes(g.id)}
+                onPress={() => router.replace(`/group/${g.id}`)}
+              >
+                <Text style={styles.collapsedEmoji}>👥</Text>
+              </Pressable>
             ))
           )}
         </View>
@@ -174,20 +138,6 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
         )}
       </View>
 
-      {/* Navigation Items */}
-      <View style={styles.navSection}>
-        {items.map((i) => (
-          <Link key={i.href} href={i.href} asChild>
-            <Pressable style={styles.navItem}>
-              <View style={styles.navIconContainer}>
-                <Text style={styles.navIcon}>{i.icon}</Text>
-              </View>
-              <Text style={styles.navLabel}>{i.label}</Text>
-            </Pressable>
-          </Link>
-        ))}
-      </View>
-
       {/* Groups section */}
       <View style={styles.groupsSection}>
         <Text style={styles.sectionTitle}>Gruppen</Text>
@@ -198,23 +148,20 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           </View>
         ) : groups.length === 0 ? (
           <Text style={styles.emptyText}>Keine Gruppen</Text>
-        ) : (
+          ) : (
           groups.map((g) => (
-            <Link
+            <Pressable
               key={g.id}
-              href={`/group/${g.id}` as any}
-              asChild
-              style={styles.groupLinkWrapper}
+              style={[styles.groupLinkWrapper, styles.groupLink]}
+              onPress={() => router.replace(`/group/${g.id}`)}
             >
-              <Pressable style={styles.groupLink}>
-                <View style={styles.groupIconContainer}>
-                  <Text style={styles.groupIcon}>👥</Text>
-                </View>
-                <Text style={styles.groupName} numberOfLines={1}>
-                  {g.name}
-                </Text>
-              </Pressable>
-            </Link>
+              <View style={styles.groupIconContainer}>
+                <Text style={styles.groupIcon}>👥</Text>
+              </View>
+              <Text style={styles.groupName} numberOfLines={1}>
+                {g.name}
+              </Text>
+            </Pressable>
           ))
         )}
 

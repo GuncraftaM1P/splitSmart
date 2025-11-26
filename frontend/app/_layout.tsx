@@ -7,7 +7,12 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import React from 'react';
-import { View, StyleSheet, useWindowDimensions } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  useWindowDimensions,
+  Animated,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import Sidebar from '@/components/Sidebar';
@@ -20,21 +25,35 @@ export const DrawerContext = React.createContext({
   isDrawerOpen: false,
 });
 
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
-
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const { width } = useWindowDimensions();
   const showPersistentSidebar = width >= 768; // persistent Sidebar ab Tablet / Web
+  // drawer width should match Drawer component (3/4 of screen)
+  const drawerWidth = Math.round(width * 0.75);
 
   const [collapsed, setCollapsed] = React.useState(false);
   const [drawerOpen, setDrawerOpen] = React.useState(false);
+  const contentAnim = React.useRef(new Animated.Value(0)).current;
 
   const toggleCollapsed = () => setCollapsed((c) => !c);
   const toggleDrawer = () => setDrawerOpen((prev) => !prev);
   const closeDrawer = () => setDrawerOpen(false);
+
+  // Animate main content when drawer opens on mobile
+  React.useEffect(() => {
+    if (showPersistentSidebar) {
+      // no animation when sidebar is persistent
+      contentAnim.setValue(0);
+      return;
+    }
+
+    Animated.timing(contentAnim, {
+      toValue: drawerOpen ? drawerWidth : 0,
+      duration: 260,
+      useNativeDriver: true,
+    }).start();
+  }, [drawerOpen, drawerWidth, showPersistentSidebar, contentAnim]);
 
   return (
     <DrawerContext.Provider value={{ toggleDrawer, isDrawerOpen: drawerOpen }}>
@@ -52,15 +71,21 @@ export default function RootLayout() {
               </View>
             )}
 
-            <View style={styles.content}>
+            <Animated.View
+              style={[
+                styles.content,
+                { transform: [{ translateX: contentAnim }] },
+              ]}
+            >
               <Stack>
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="group/[uuid]" options={{ headerShown: false }} />
                 <Stack.Screen
                   name="modal"
                   options={{ presentation: 'modal', title: 'Modal' }}
                 />
               </Stack>
-            </View>
+            </Animated.View>
 
             {/* Mobile drawer */}
             {!showPersistentSidebar && (
