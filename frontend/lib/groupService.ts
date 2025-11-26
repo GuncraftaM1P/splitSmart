@@ -215,3 +215,39 @@ export async function deleteGroup(id: string): Promise<boolean> {
     return false;
   }
 }
+
+export async function addGroupMember(groupId: string, name: string): Promise<boolean> {
+  try {
+    const res = await fetch(getEndpoint(`groups/${groupId}/add-member`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) {
+      console.warn('Failed to add member', await res.text());
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Error adding member', err);
+    return false;
+  }
+}
+
+export async function removeGroupMember(groupId: string, name: string): Promise<boolean> {
+  try {
+    const res = await fetch(getEndpoint(`groups/${groupId}/remove-member`), {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) {
+      console.warn('Failed to remove member', await res.text());
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Error removing member', err);
+    return false;
+  }
+}
