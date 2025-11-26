@@ -3,6 +3,8 @@ import {
   handlePostCreate,
   handlePatchUpdate,
   handleDelete,
+  handleAddMember,
+  handleRemoveMember,
 } from './routes/groups.js';
 import openapi from './openapi.json';
 
@@ -126,4 +128,6 @@ const routes: Record<
   'POST:/groups/create': handlePostCreate,
   'PATCH:/groups/update': handlePatchUpdate,
   'DELETE:/groups/delete': handleDelete,
+  'POST:/groups/add-member': handleAddMember,
+  'DELETE:/groups/remove-member': handleRemoveMember,
 };
