@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "build": "NODE_ENV=production npx drizzle-kit pull && npx tsc",
-    "start": "wrangler dev -e dev"
+    "db:reset": "rm -rf .wrangler && npx wrangler d1 execute split_smart -e dev --local --command 'SELECT 1;' && npx drizzle-kit push",
+    "start": "wrangler dev -e dev --ip 0.0.0.0"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.8.71",
@@ -13,8 +14,7 @@
     "drizzle-kit": "^0.31.5",
     "tsx": "^4.20.6",
     "typescript": "^5.9.3",
-    "vitest": "~3.2.0",
-    "wrangler": "^4.50.0"
+    "vitest": "~3.2.0"
   },
   "dependencies": {
     "dotenv": "^17.2.3",

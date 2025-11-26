@@ -15,16 +15,9 @@
       "description": "API Server"
     }
   ],
-  "tags": [
-    {
-      "name": "Groups",
-      "description": "Group management operations"
-    }
-  ],
   "paths": {
     "/groups/{groupId}/info": {
       "get": {
-        "tags": ["Groups"],
         "summary": "Get group information",
         "description": "Retrieves information about a specific group",
         "parameters": [
@@ -103,7 +96,6 @@
     },
     "/groups/{groupId}/create": {
       "post": {
-        "tags": ["Groups"],
         "summary": "Create a new group",
         "description": "Creates a new group with the specified UUID v4",
         "parameters": [
@@ -127,6 +119,52 @@
           },
           "409": {
             "description": "Group already exists"
+          }
+        }
+      }
+    },
+    "/groups/{groupId}/update": {
+      "patch": {
+        "summary": "Update group metadata",
+        "description": "Allows editing the group's name and/or description",
+        "parameters": [
+          {
+            "name": "groupId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "UUID of the group to update"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 30
+                  },
+                  "description": {
+                    "type": "string",
+                    "maxLength": 200
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Group updated"
+          },
+          "400": {
+            "description": "Validation error or no fields to update"
           }
         }
       }
