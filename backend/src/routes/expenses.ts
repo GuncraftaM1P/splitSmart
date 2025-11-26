@@ -17,7 +17,7 @@ interface ExpenseBody {
   paidFor: string[];
 }
 
-export async function handleExpensesPatchUpdate(
+export async function handleExpensesPostUpdate(
   request: Request,
   env: Env,
   groupId: string,

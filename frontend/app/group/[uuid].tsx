@@ -106,6 +106,7 @@ export default function GroupScreen() {
 
   const backendURL = getBackendURL();
   const [showAddInput, setShowAddInput] = useState(false);
+  // expense modal removed — new screen will handle adding expenses
 
   useEffect(() => {
     setGroupMissing(false);
@@ -631,6 +632,64 @@ export default function GroupScreen() {
                 </View>
               ) : null}
             </View>
+
+            {/* Expenses list */}
+            <View style={styles.balancesSection}>
+              <View
+                style={[
+                  styles.row,
+                  {
+                    justifyContent: 'space-evenly',
+                    marginBottom: 8,
+                  },
+                ]}
+              >
+                <Text style={styles.membersTitleSmall}>Ausgaben</Text>
+                <Pressable
+                  style={styles.addExpenseButton}
+                  onPress={() =>
+                    router.push(`/add-expense/${uuid}` as unknown as any)
+                  }
+                >
+                  <Text style={styles.addExpenseButtonText}>+</Text>
+                </Pressable>
+              </View>
+
+              {/* Expenses list rows */}
+              <View style={styles.expenseList}>
+                {(data?.expenses ?? [])
+                  .slice()
+                  .sort((a: any, b: any) => (a.id < b.id ? 1 : -1))
+                  .map((exp: any) => {
+                    const amount = Number(exp?.amount ?? 0) || 0;
+                    return (
+                      //TODO: make swipeable to edit
+                      <Pressable
+                        key={exp.id}
+                        style={styles.expenseRow}
+                        onPress={() => {
+                          /* no-op for now, clickable */
+                          // TODO: add expense detail view and editing
+                        }}
+                      >
+                        <Text style={styles.expensePrice}>
+                          €{amount.toFixed(2)}
+                        </Text>
+                        <Text numberOfLines={1} style={styles.expenseTitle}>
+                          {exp.description}
+                        </Text>
+                        <View style={styles.expenseArrow}>
+                          <IconSymbol
+                            size={18}
+                            name="chevron.right"
+                            color="#ccc"
+                          />
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+              </View>
+            </View>
           </View>
         </>
       )}
@@ -645,6 +704,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
   },
   row: {
+    position: 'relative',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -843,7 +903,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   balancesSection: {
-    marginTop: 16,
+    marginTop: 32,
   },
   balancesGrid: {
     marginTop: 8,
@@ -913,5 +973,50 @@ const styles = StyleSheet.create({
   },
   cancelAddButtonText: {
     color: '#666',
+  },
+  membersTitleSmall: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#222',
+  },
+  addExpenseButton: {
+    position: 'absolute',
+    right: 0,
+    backgroundColor: '#007AFF',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addExpenseButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  expenseList: {
+    marginTop: 4,
+  },
+  expenseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  expensePrice: {
+    width: 80,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111',
+  },
+  expenseTitle: {
+    flex: 1,
+    color: '#888',
+    marginRight: 8,
+  },
+  expenseArrow: {
+    width: 24,
+    alignItems: 'flex-end',
   },
 });
