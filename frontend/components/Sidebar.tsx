@@ -10,6 +10,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import uuid from 'react-native-uuid';
+import appConfig from '../app.json';
 import {
   GroupSummary,
   loadValidatedGroups,
@@ -31,6 +32,8 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
   const [creating, setCreating] = React.useState(false);
   const [deletingIds, setDeletingIds] = React.useState<string[]>([]);
   const safeTop = Math.max(insets.top, 20);
+  const version =
+    (appConfig as any)?.expo?.version ?? (appConfig as any)?.version ?? '?.?.?';
 
   // Load persisted groups from shared helper
   React.useEffect(() => {
@@ -118,6 +121,9 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             ))
           )}
         </View>
+        <View style={styles.footerCollapsed}>
+          <Text style={styles.versionText}>v{version}</Text>
+        </View>
       </View>
     );
   }
@@ -148,7 +154,7 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           </View>
         ) : groups.length === 0 ? (
           <Text style={styles.emptyText}>Keine Gruppen</Text>
-          ) : (
+        ) : (
           groups.map((g) => (
             <Pressable
               key={g.id}
@@ -177,6 +183,9 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           </View>
           <Text style={styles.addGroupLabel}>Neue Gruppe</Text>
         </Pressable>
+      </View>
+      <View style={styles.footer}>
+        <Text style={styles.versionText}>v{version}</Text>
       </View>
     </View>
   );
@@ -400,5 +409,25 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#007AFF',
     fontWeight: '400',
+  },
+  footer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    alignItems: 'center',
+    backgroundColor: '#f7f8fa',
+  },
+  footerCollapsed: {
+    paddingHorizontal: 8,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    alignItems: 'center',
+    width: '100%',
+  },
+  versionText: {
+    fontSize: 12,
+    color: '#999',
   },
 });
