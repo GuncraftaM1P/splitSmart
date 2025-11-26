@@ -8,7 +8,7 @@ import {
   Platform,
   TextInput,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import uuid from 'react-native-uuid';
 import appConfig from '../app.json';
@@ -34,6 +34,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const pathname = usePathname();
   const [groups, setGroups] = React.useState<GroupSummary[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [creating, setCreating] = React.useState(false);
@@ -124,7 +125,10 @@ export default function Sidebar({
                 style={styles.collapsedIconButton}
                 accessibilityLabel={g.name}
                 disabled={deletingIds.includes(g.id)}
-                onPress={() => router.replace(`/group/${g.id}`)}
+                onPress={() => {
+                  if (pathname === `/group/${g.id}`) return;
+                  router.replace(`/group/${g.id}`);
+                }}
               >
                 <Text style={styles.collapsedEmoji}>👥</Text>
               </Pressable>
@@ -169,7 +173,10 @@ export default function Sidebar({
             <Pressable
               key={g.id}
               style={[styles.groupLinkWrapper, styles.groupLink]}
-              onPress={() => router.replace(`/group/${g.id}`)}
+              onPress={() => {
+                if (pathname === `/group/${g.id}`) return;
+                router.replace(`/group/${g.id}`);
+              }}
             >
               <View style={styles.groupIconContainer}>
                 <Text style={styles.groupIcon}>👥</Text>

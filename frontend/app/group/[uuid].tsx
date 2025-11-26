@@ -105,6 +105,7 @@ export default function GroupScreen() {
   ).current;
 
   const backendURL = getBackendURL();
+  const [showAddInput, setShowAddInput] = useState(false);
 
   useEffect(() => {
     setGroupMissing(false);
@@ -149,6 +150,91 @@ export default function GroupScreen() {
       console.error('Error fetching data:', err);
     }
   };
+
+  // Small helper component to render a grid of member balance cards
+  function BalancesGrid({
+    data,
+    removingMember,
+    onRemove,
+    onStartAdd,
+  }: {
+    data: GroupDetails | null;
+    removingMember: string | null;
+    onRemove: (name: string) => void;
+    onStartAdd: () => void;
+  }) {
+    const members = data?.members ?? [];
+
+    // Compute balances from expenses: for each expense with amount, split equally among paidFor.
+    const balances: Record<string, number> = {};
+    (members || []).forEach((m) => (balances[m] = 0));
+
+    (data?.expenses ?? []).forEach((exp: any) => {
+      const amount = Number(exp?.amount ?? 0) || 0;
+      const paidFor: string[] = Array.isArray(exp?.paidFor) ? exp.paidFor : [];
+      const share = paidFor.length > 0 ? amount / paidFor.length : 0;
+      const paidBy = exp?.paidBy;
+
+      // payer gets credited the full amount (they paid), each participant owes share
+      if (paidBy && typeof paidBy === 'string') {
+        if (!(paidBy in balances)) balances[paidBy] = 0;
+        balances[paidBy] += amount;
+      }
+
+      paidFor.forEach((p) => {
+        if (!(p in balances)) balances[p] = 0;
+        balances[p] -= share;
+      });
+    });
+
+    const format = (n: number) => {
+      const sign = n > 0 ? '+' : n < 0 ? '-' : '';
+      return `${sign}€${Math.abs(n).toFixed(2)}`;
+    };
+
+    return (
+      <View style={styles.balancesGrid}>
+        {members.map((name) => {
+          const bal = balances[name] ?? 0;
+          const positive = bal > 0.005;
+          const negative = bal < -0.005;
+          return (
+            <View
+              key={name}
+              style={[
+                styles.memberCard,
+                positive
+                  ? styles.memberCardPositive
+                  : negative
+                  ? styles.memberCardNegative
+                  : null,
+              ]}
+            >
+              <Text style={styles.memberCardName}>{name}</Text>
+              <Text style={styles.memberBalance}>{format(bal)}</Text>
+              <Pressable
+                style={styles.removeMemberSmall}
+                onPress={() => onRemove(name)}
+                disabled={removingMember === name}
+              >
+                <Text style={styles.removeMemberSmallText}>
+                  {removingMember === name ? '…' : '✕'}
+                </Text>
+              </Pressable>
+            </View>
+          );
+        })}
+
+        {/* Add member card */}
+        <Pressable
+          style={[styles.memberCard, styles.addCard]}
+          onPress={onStartAdd}
+        >
+          <Text style={styles.addCardText}>+ Mitglied hinzufügen</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   // Initial fetch and polling every 5 seconds while screen is focused
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -265,7 +351,7 @@ export default function GroupScreen() {
 
     if (Platform.OS === 'web') {
       const confirmed = window.confirm(
-        'Möchtest du diese Gruppe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden.',
+        'Möchtest du diese Gruppe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden!.',
       );
       if (!confirmed) return;
       void doDelete();
@@ -274,7 +360,7 @@ export default function GroupScreen() {
 
     Alert.alert(
       'Gruppe löschen',
-      'Möchtest du diese Gruppe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden?',
+      'Möchtest du diese Gruppe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden!',
       [
         { text: 'Abbrechen', style: 'cancel' },
         {
@@ -309,6 +395,31 @@ export default function GroupScreen() {
     } else {
       setError('Mitglied konnte nicht entfernt werden');
     }
+  };
+
+  // Confirm before removing a member (web: window.confirm, native: Alert)
+  const confirmRemoveMember = (name: string) => {
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(
+        'Möchtest du dieses Mitglied wirklich entfernen? Diese Aktion kann nicht rückgängig gemacht werden!',
+      );
+      if (!confirmed) return;
+      void handleRemoveMember(name);
+      return;
+    }
+
+    Alert.alert(
+      'Mitglied entfernen',
+      'Möchtest du dieses Mitglied wirklich entfernen? Diese Aktion kann nicht rückgängig gemacht werden!',
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        {
+          text: 'Entfernen',
+          style: 'destructive',
+          onPress: () => void handleRemoveMember(name),
+        },
+      ],
+    );
   };
 
   return (
@@ -470,47 +581,55 @@ export default function GroupScreen() {
               </Pressable>
             </View>
 
-            <View style={styles.membersSection}>
+            {/* Balances grid */}
+            <View style={styles.balancesSection}>
               <Text style={styles.membersTitle}>Teilnehmer</Text>
-              <View style={styles.addMemberRow}>
-                <TextInput
-                  style={styles.memberInput}
-                  value={memberName}
-                  onChangeText={setMemberName}
-                  placeholder="Name eingeben"
-                  editable={!addingMember}
-                  onSubmitEditing={handleAddMember}
-                />
-                <Pressable
-                  style={styles.addMemberButton}
-                  onPress={handleAddMember}
-                  disabled={addingMember || !memberName.trim()}
-                >
-                  <Text style={styles.addMemberButtonText}>
-                    {addingMember ? 'Hinzufügen…' : 'Hinzufügen'}
-                  </Text>
-                </Pressable>
-              </View>
-              <View style={styles.membersList}>
-                {data?.members?.length ? (
-                  data.members.map((name) => (
-                    <View key={name} style={styles.memberRow}>
-                      <Text style={styles.memberName}>{name}</Text>
-                      <Pressable
-                        style={styles.removeMemberButton}
-                        onPress={() => handleRemoveMember(name)}
-                        disabled={removingMember === name}
-                      >
-                        <Text style={styles.removeMemberButtonText}>
-                          {removingMember === name ? '…' : '✕'}
-                        </Text>
-                      </Pressable>
-                    </View>
-                  ))
-                ) : (
-                  <Text style={styles.noMembersText}>Keine Teilnehmer</Text>
-                )}
-              </View>
+
+              {/* Optional inline add member input shown when user taps + card */}
+              {/** showAddInput controls rendering of the input box */}
+              <BalancesGrid
+                data={data}
+                removingMember={removingMember}
+                onRemove={confirmRemoveMember}
+                onStartAdd={() => setShowAddInput(true)}
+              />
+
+              {showAddInput ? (
+                <View style={styles.addMemberRowInline}>
+                  <TextInput
+                    style={styles.memberInput}
+                    value={memberName}
+                    onChangeText={setMemberName}
+                    placeholder="Name eingeben"
+                    editable={!addingMember}
+                    onSubmitEditing={async () => {
+                      await handleAddMember();
+                      setShowAddInput(false);
+                    }}
+                  />
+                  <Pressable
+                    style={styles.addMemberButton}
+                    onPress={async () => {
+                      await handleAddMember();
+                      setShowAddInput(false);
+                    }}
+                    disabled={addingMember || !memberName.trim()}
+                  >
+                    <Text style={styles.addMemberButtonText}>
+                      {addingMember ? 'Hinzufügen…' : 'Hinzufügen'}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      setShowAddInput(false);
+                      setMemberName('');
+                    }}
+                    style={styles.cancelAddButton}
+                  >
+                    <Text style={styles.cancelAddButtonText}>Abbrechen</Text>
+                  </Pressable>
+                </View>
+              ) : null}
             </View>
           </View>
         </>
@@ -722,5 +841,77 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     textAlign: 'center',
     marginTop: 8,
+  },
+  balancesSection: {
+    marginTop: 16,
+  },
+  balancesGrid: {
+    marginTop: 8,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  memberCard: {
+    width: '48%',
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  memberCardPositive: {
+    backgroundColor: '#ecfdf5',
+    borderColor: '#b7f5c8',
+  },
+  memberCardNegative: {
+    backgroundColor: '#fff1f0',
+    borderColor: '#ffcccc',
+  },
+  memberCardName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#111',
+    marginBottom: 6,
+  },
+  memberBalance: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#333',
+  },
+  removeMemberSmall: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    padding: 6,
+  },
+  removeMemberSmallText: {
+    color: '#999',
+    fontSize: 12,
+  },
+  addCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f5f9ff',
+    borderStyle: 'dashed',
+  },
+  addCardText: {
+    color: '#007AFF',
+    fontWeight: '600',
+  },
+  addMemberRowInline: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 8,
+  },
+  cancelAddButton: {
+    marginLeft: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  cancelAddButtonText: {
+    color: '#666',
   },
 });
