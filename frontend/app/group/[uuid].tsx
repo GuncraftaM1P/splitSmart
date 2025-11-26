@@ -25,6 +25,8 @@ import {
   GroupDetails,
   deleteGroup as deleteRemoteGroup,
   removeGroupId,
+  addGroupMember,
+  removeGroupMember,
 } from '@/lib/groupService';
 import { loadStoredGroupIds } from '@/lib/groupService';
 
@@ -40,6 +42,9 @@ export default function GroupScreen() {
   const [editedDescription, setEditedDescription] = useState('');
   const [originalName, setOriginalName] = useState('');
   const [originalDescription, setOriginalDescription] = useState('');
+  const [memberName, setMemberName] = useState('');
+  const [addingMember, setAddingMember] = useState(false);
+  const [removingMember, setRemovingMember] = useState<string | null>(null);
   const isMountedRef = useRef(true);
   const [titleWidth, setTitleWidth] = useState(0);
   const [descriptionWidth, setDescriptionWidth] = useState(0);
@@ -309,6 +314,31 @@ export default function GroupScreen() {
     })();
   };
 
+  const handleAddMember = async () => {
+    const name = memberName.trim();
+    if (!name) return;
+    setAddingMember(true);
+    const ok = await addGroupMember(uuid!, name);
+    setAddingMember(false);
+    if (ok) {
+      setMemberName('');
+      fetchGroupInfo();
+    } else {
+      setError('Mitglied konnte nicht hinzugefügt werden');
+    }
+  };
+
+  const handleRemoveMember = async (name: string) => {
+    setRemovingMember(name);
+    const ok = await removeGroupMember(uuid!, name);
+    setRemovingMember(null);
+    if (ok) {
+      fetchGroupInfo();
+    } else {
+      setError('Mitglied konnte nicht entfernt werden');
+    }
+  };
+
   return (
     <>
       {error === 'Group not found' ? (
@@ -457,6 +487,49 @@ export default function GroupScreen() {
                 </Text>
               </Pressable>
             </View>
+
+            <View style={styles.membersSection}>
+              <Text style={styles.membersTitle}>Teilnehmer</Text>
+              <View style={styles.addMemberRow}>
+                <TextInput
+                  style={styles.memberInput}
+                  value={memberName}
+                  onChangeText={setMemberName}
+                  placeholder="Name eingeben"
+                  editable={!addingMember}
+                  onSubmitEditing={handleAddMember}
+                />
+                <Pressable
+                  style={styles.addMemberButton}
+                  onPress={handleAddMember}
+                  disabled={addingMember || !memberName.trim()}
+                >
+                  <Text style={styles.addMemberButtonText}>
+                    {addingMember ? 'Hinzufügen…' : 'Hinzufügen'}
+                  </Text>
+                </Pressable>
+              </View>
+              <View style={styles.membersList}>
+                {data?.members?.length ? (
+                  data.members.map((name) => (
+                    <View key={name} style={styles.memberRow}>
+                      <Text style={styles.memberName}>{name}</Text>
+                      <Pressable
+                        style={styles.removeMemberButton}
+                        onPress={() => handleRemoveMember(name)}
+                        disabled={removingMember === name}
+                      >
+                        <Text style={styles.removeMemberButtonText}>
+                          {removingMember === name ? '…' : '✕'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  ))
+                ) : (
+                  <Text style={styles.noMembersText}>Keine Teilnehmer</Text>
+                )}
+              </View>
+            </View>
           </View>
         </>
       )}
@@ -594,5 +667,78 @@ const styles = StyleSheet.create({
   errorButtonText: {
     color: '#fff',
     fontWeight: '600',
+  },
+  membersSection: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: '#f7f8fa',
+    borderRadius: 12,
+  },
+  membersTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#222',
+  },
+  addMemberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  memberInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 8,
+    fontSize: 16,
+    backgroundColor: '#fff',
+  },
+  addMemberButton: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  addMemberButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  membersList: {
+    marginTop: 4,
+  },
+  memberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  memberName: {
+    fontSize: 16,
+    color: '#222',
+    flex: 1,
+  },
+  removeMemberButton: {
+    marginLeft: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    backgroundColor: '#f44336',
+  },
+  removeMemberButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  noMembersText: {
+    color: '#888',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginTop: 8,
   },
 });
