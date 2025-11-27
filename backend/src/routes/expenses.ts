@@ -64,3 +64,100 @@ export async function handleExpensesPostUpdate(
 
   return new Response(JSON.stringify(newExpense), { status: 201 });
 }
+
+export async function handleExpensesDelete(
+  request: Request,
+  env: Env,
+  groupId: string,
+): Promise<Response> {
+  const db = drizzle(env.prod_db);
+
+  const group = await db
+    .select()
+    .from(groupsTable)
+    .where(eq(groupsTable.id, groupId))
+    .get();
+
+  if (!group) {
+    return new Response('Group not found', { status: 404 });
+  }
+
+  const body = (await request.json()) as { expenseId: string };
+
+  if (!body.expenseId) {
+    return new Response('Missing expenseId', { status: 400 });
+  }
+
+  const expenses = group.expenses;
+
+  const updatedExpenses = expenses.filter(
+    (expense) => expense.id !== body.expenseId,
+  );
+
+  if (expenses.length === updatedExpenses.length) {
+    return new Response('Expense not found', { status: 404 });
+  }
+  await db
+    .update(groupsTable)
+    .set({ expenses: updatedExpenses })
+    .where(eq(groupsTable.id, groupId));
+
+  return new Response('Expense deleted', { status: 200 });
+}
+
+
+export async function handleExpensesPatch(
+  request: Request,
+  env: Env,
+  groupId: string,
+): Promise<Response> {
+
+  const db = drizzle(env.prod_db);
+
+  const group = await db
+    .select()
+    .from(groupsTable)
+    .where(eq(groupsTable.id, groupId))
+    .get();
+
+  if (!group) {
+    return new Response('Group not found', { status: 404 });
+  }
+
+  const body = (await request.json()) as ExpenseBody & { expenseId: string };
+
+  if (!body.expenseId || !body.description || !body.amount || !body.paidBy || !body.paidFor) {
+    return new Response('Missing fields', { status: 400 });
+  }
+
+  if (isNaN(Number(body.amount))) {
+    return new Response('Amount must be a number', { status: 400 });
+  }
+
+  const expenses = group.expenses;
+
+  const expenseIndex = expenses.findIndex(
+    (expense) => expense.id === body.expenseId,
+  );
+
+  if (expenseIndex === -1) {
+    return new Response('Expense not found', { status: 404 });
+  }
+
+  const updatedExpense = {
+    id: body.expenseId,
+    description: body.description,
+    amount: Number(body.amount),
+    paidBy: body.paidBy,
+    paidFor: body.paidFor,
+  };
+
+  expenses[expenseIndex] = updatedExpense;
+
+  await db
+    .update(groupsTable)
+    .set({ expenses })
+    .where(eq(groupsTable.id, groupId));
+
+  return new Response(JSON.stringify(updatedExpense), { status: 200 });
+}

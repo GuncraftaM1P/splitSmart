@@ -9,6 +9,7 @@ import {
   useWindowDimensions,
   Platform,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,10 +17,13 @@ import { getBackendURL } from '@/constants/api';
 import { fetchGroupDetails } from '@/lib/groupService';
 
 export default function AddExpenseScreen() {
-  const { uuid } = useLocalSearchParams<{ uuid: string }>();
+  const { uuid, expenseId } = useLocalSearchParams<{ uuid: string; expenseId?: string }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+
+  // Determine if we are editing an existing expense
+  const isEditing = Boolean(expenseId);
 
   const [group, setGroup] = useState<any | null>(null);
   const [description, setDescription] = useState('');
@@ -28,6 +32,8 @@ export default function AddExpenseScreen() {
   const [paidFor, setPaidFor] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [loadingExpense, setLoadingExpense] = useState(isEditing);
+  const [deleting, setDeleting] = useState(false);
 
   const isMountedRef = useRef(true);
 
@@ -39,14 +45,27 @@ export default function AddExpenseScreen() {
         const g = await fetchGroupDetails(uuid);
         if (!isMountedRef.current) return;
         setGroup(g);
+
+        // If editing, prefill form with existing expense data
+        if (expenseId && g?.expenses) {
+          const expense = g.expenses.find((e: any) => e.id === expenseId);
+          if (expense) {
+            setDescription(expense.description ?? '');
+            setAmount(String(expense.amount ?? ''));
+            setPaidBy(expense.paidBy ?? '');
+            setPaidFor(Array.isArray(expense.paidFor) ? expense.paidFor : []);
+          }
+        }
+        setLoadingExpense(false);
       } catch (err) {
         console.error('Failed to load group', err);
+        setLoadingExpense(false);
       }
     })();
     return () => {
       isMountedRef.current = false;
     };
-  }, [uuid]);
+  }, [uuid, expenseId]);
 
   // PanResponder to go back on left->right swipe
   const panRef = useRef(
@@ -87,10 +106,11 @@ export default function AddExpenseScreen() {
       amount: Number(sanitizedAmount) || 0,
       paidBy,
       paidFor,
+      ...(isEditing && expenseId ? { expenseId } : {}),
     } as any;
     try {
       const res = await fetch(`${backendURL}groups/${uuid}/expenses`, {
-        method: 'POST',
+        method: isEditing ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
@@ -110,21 +130,85 @@ export default function AddExpenseScreen() {
     }
   };
 
+  // Title based on mode
+  const screenTitle = isEditing ? 'Ausgabe bearbeiten' : 'Neue Ausgabe';
+  const saveButtonText = saving
+    ? 'Speichern…'
+    : isEditing
+    ? 'Aktualisieren'
+    : 'Speichern';
+
+  // Delete expense handler (only for edit mode)
+  const handleDelete = async () => {
+    if (!uuid || !expenseId) return;
+    setDeleting(true);
+    setError('');
+    try {
+      const res = await fetch(`${backendURL}groups/${uuid}/expenses`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expenseId }),
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        setError(text || 'Fehler beim Löschen');
+        setDeleting(false);
+        return;
+      }
+      // success — go back to group
+      router.back();
+    } catch (err) {
+      console.error('Error deleting expense', err);
+      setError('Fehler beim Löschen');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const confirmDelete = () => {
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm(
+        'Möchtest du diese Ausgabe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden!',
+      );
+      if (!confirmed) return;
+      void handleDelete();
+      return;
+    }
+
+    Alert.alert(
+      'Ausgabe löschen',
+      'Möchtest du diese Ausgabe wirklich löschen? Diese Aktion kann nicht rückgängig gemacht werden!',
+      [
+        { text: 'Abbrechen', style: 'cancel' },
+        {
+          text: 'Löschen',
+          style: 'destructive',
+          onPress: () => void handleDelete(),
+        },
+      ],
+    );
+  };
+
   return (
     <View
       style={[styles.container, { paddingTop: Math.max(insets.top, 12) }]}
       {...panRef.panHandlers}
     >
-      <Stack.Screen options={{ title: 'Neue Ausgabe' }} />
+      <Stack.Screen options={{ title: screenTitle }} />
 
       <View style={styles.headerRow}>
         <Pressable onPress={() => router.back()} style={styles.backButton}>
           <Text style={styles.backText}>Zurück</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>Neue Ausgabe</Text>
+        <Text style={styles.headerTitle}>{screenTitle}</Text>
         <View style={{ width: 64 }} />
       </View>
 
+      {loadingExpense ? (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Lade Ausgabe…</Text>
+        </View>
+      ) : (
       <ScrollView
         style={styles.form}
         contentContainerStyle={{ paddingBottom: 40 }}
@@ -197,21 +281,33 @@ export default function AddExpenseScreen() {
           <Pressable
             style={[styles.btn, styles.btnCancel]}
             onPress={() => router.back()}
-            disabled={saving}
+            disabled={saving || deleting}
           >
             <Text style={styles.btnCancelText}>Abbrechen</Text>
           </Pressable>
           <Pressable
             style={[styles.btn, styles.btnSave]}
             onPress={handleSave}
-            disabled={saving}
+            disabled={saving || deleting}
           >
-            <Text style={styles.btnSaveText}>
-              {saving ? 'Speichern…' : 'Speichern'}
-            </Text>
+            <Text style={styles.btnSaveText}>{saveButtonText}</Text>
           </Pressable>
         </View>
+
+        {/* Delete button only in edit mode */}
+        {isEditing && (
+          <Pressable
+            style={[styles.btn, styles.btnDelete, { marginTop: 24 }]}
+            onPress={confirmDelete}
+            disabled={saving || deleting}
+          >
+            <Text style={styles.btnDeleteText}>
+              {deleting ? 'Löschen…' : 'Ausgabe löschen'}
+            </Text>
+          </Pressable>
+        )}
       </ScrollView>
+      )}
     </View>
   );
 }
@@ -265,4 +361,22 @@ const styles = StyleSheet.create({
   btnSave: { backgroundColor: '#007AFF' },
   btnSaveText: { color: '#fff', fontWeight: '700' },
   error: { color: '#c00', marginTop: 6 },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    color: '#888',
+    fontSize: 16,
+  },
+  btnDelete: {
+    backgroundColor: '#f44336',
+    width: '100%',
+    alignItems: 'center',
+  },
+  btnDeleteText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
 });

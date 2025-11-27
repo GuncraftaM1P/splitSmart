@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Platform,
   TextInput,
+  Alert,
 } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,6 +21,7 @@ import {
   fetchGroupSummaryWithRetry,
   onGroupsChanged,
 } from '@/lib/groupService';
+import { getBackendURL } from '@/constants/api';
 
 type SidebarProps = {
   collapsed?: boolean;
@@ -45,6 +47,12 @@ export default function Sidebar({
   const [joinId, setJoinId] = React.useState('');
   const [joining, setJoining] = React.useState(false);
   const [joinError, setJoinError] = React.useState<string | null>(null);
+  const [showBackendText, setShowBackendText] = React.useState(false);
+  const backendUrl = getBackendURL();
+
+  const toggleBackendText = () => {
+    setShowBackendText((v) => !v);
+  };
 
   // Load persisted groups from shared helper
   React.useEffect(() => {
@@ -136,7 +144,11 @@ export default function Sidebar({
           )}
         </View>
         <View style={styles.footerCollapsed}>
-          <Text style={styles.versionText}>v{version}</Text>
+          <Pressable onPress={toggleBackendText} accessibilityLabel="Toggle backend url">
+            <Text style={styles.versionText}>
+              {showBackendText ? String(backendUrl) : `v${version}`}
+            </Text>
+          </Pressable>
         </View>
       </View>
     );
@@ -259,7 +271,9 @@ export default function Sidebar({
         ) : null}
       </View>
       <View style={styles.footer}>
-        <Text style={styles.versionText}>v{version}</Text>
+        <Pressable onPress={toggleBackendText} accessibilityLabel="Toggle backend url">
+          <Text style={styles.versionText}>{showBackendText ? String(backendUrl) : `v${version}`}</Text>
+        </Pressable>
       </View>
     </View>
   );

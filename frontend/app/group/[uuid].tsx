@@ -291,6 +291,57 @@ export default function GroupScreen() {
     }
   };
 
+  // Expense API helpers (use backend routes: PATCH to replace expense, DELETE to remove by id)
+  const patchExpense = async (expense: any) => {
+    if (!uuid) return false;
+    try {
+      const res = await fetch(`${backendURL}groups/${uuid}/expenses`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          expenseId: expense.id,
+          description: expense.description,
+          amount: Number(expense.amount),
+          paidBy: expense.paidBy,
+          paidFor: expense.paidFor,
+        }),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        setError(txt || 'Failed to update expense');
+        return false;
+      }
+      setError('');
+      return true;
+    } catch (err) {
+      console.error('patchExpense error', err);
+      setError('Failed to update expense');
+      return false;
+    }
+  };
+
+  const deleteExpense = async (expenseId: string) => {
+    if (!uuid) return false;
+    try {
+      const res = await fetch(`${backendURL}groups/${uuid}/expenses`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expenseId }),
+      });
+      if (!res.ok) {
+        const txt = await res.text();
+        setError(txt || 'Failed to delete expense');
+        return false;
+      }
+      setError('');
+      return true;
+    } catch (err) {
+      console.error('deleteExpense error', err);
+      setError('Failed to delete expense');
+      return false;
+    }
+  };
+
   const handleEditNameClick = async () => {
     if (isEditingName) {
       const trimmedName = editedName.trim();
@@ -663,29 +714,30 @@ export default function GroupScreen() {
                   .map((exp: any) => {
                     const amount = Number(exp?.amount ?? 0) || 0;
                     return (
-                      //TODO: make swipeable to edit
-                      <Pressable
-                        key={exp.id}
-                        style={styles.expenseRow}
-                        onPress={() => {
-                          /* no-op for now, clickable */
-                          // TODO: add expense detail view and editing
-                        }}
-                      >
-                        <Text style={styles.expensePrice}>
-                          €{amount.toFixed(2)}
-                        </Text>
-                        <Text numberOfLines={1} style={styles.expenseTitle}>
-                          {exp.description}
-                        </Text>
-                        <View style={styles.expenseArrow}>
-                          <IconSymbol
-                            size={18}
-                            name="chevron.right"
-                            color="#ccc"
-                          />
-                        </View>
-                      </Pressable>
+                      <View key={exp.id} style={styles.expenseRow}>
+                        <Pressable
+                          onPress={() =>
+                            router.push(
+                              `/add-expense/${uuid}?expenseId=${exp.id}` as unknown as any,
+                            )
+                          }
+                          style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                        >
+                          <Text style={styles.expensePrice}>
+                            €{amount.toFixed(2)}
+                          </Text>
+                          <Text numberOfLines={1} style={styles.expenseTitle}>
+                            {exp.description}
+                          </Text>
+                          <View style={styles.expenseArrow}>
+                            <IconSymbol
+                              size={18}
+                              name="chevron.right"
+                              color="#ccc"
+                            />
+                          </View>
+                        </Pressable>
+                      </View>
                     );
                   })}
               </View>
@@ -1018,5 +1070,12 @@ const styles = StyleSheet.create({
   expenseArrow: {
     width: 24,
     alignItems: 'flex-end',
+  },
+  iconButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    marginLeft: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

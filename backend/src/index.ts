@@ -6,7 +6,7 @@ import {
   handleAddMember,
   handleRemoveMember,
 } from './routes/groups.js';
-import { handleExpensesPostUpdate } from './routes/expenses.js';
+import { handleExpensesPostUpdate, handleExpensesDelete, handleExpensesPatch } from './routes/expenses.js';
 import openapi from './openapi.json';
 
 export const corsHeaders = {
@@ -125,11 +125,18 @@ const routes: Record<
   string,
   (request: Request, env: Env, groupId: string) => Promise<Response>
 > = {
+  /* Group routes */
   'GET:/groups/info': handleGetInfo,
   'POST:/groups/create': handlePostCreate,
   'PATCH:/groups/update': handlePatchUpdate,
   'DELETE:/groups/delete': handleDelete,
+
+  /* Member routes */
   'POST:/groups/add-member': handleAddMember,
   'DELETE:/groups/remove-member': handleRemoveMember,
+
+  /* Expenses routes */
   'POST:/groups/expenses': handleExpensesPostUpdate,
+  'DELETE:/groups/expenses': handleExpensesDelete,
+  'PATCH:/groups/expenses': handleExpensesPatch,
 };
