@@ -16,31 +16,45 @@ type DrawerProps = {
 
 export default function Drawer({ visible, onClose, children }: DrawerProps) {
   const screenWidth = Dimensions.get('window').width;
-  const drawerWidth = Math.min(280, screenWidth * 0.85);
+  // Drawer should fill 3/4 of the screen on mobile
+  const drawerWidth = Math.round(screenWidth * 0.75);
   const slideAnim = React.useRef(new Animated.Value(-drawerWidth)).current;
+  const [mounted, setMounted] = React.useState(visible);
 
+  // Keep mounted while animating out so close animation is visible
   React.useEffect(() => {
+    let animation: Animated.CompositeAnimation;
+
     if (visible) {
-      Animated.spring(slideAnim, {
+      setMounted(true);
+      animation = Animated.timing(slideAnim, {
         toValue: 0,
+        duration: 260,
         useNativeDriver: true,
-        tension: 65,
-        friction: 11,
-      }).start();
+      });
+      animation.start();
     } else {
-      Animated.timing(slideAnim, {
+      animation = Animated.timing(slideAnim, {
         toValue: -drawerWidth,
-        duration: 250,
+        duration: 200,
         useNativeDriver: true,
-      }).start();
+      });
+      animation.start(() => {
+        // unmount after animation completes
+        setMounted(false);
+      });
     }
+
+    return () => {
+      animation && animation.stop();
+    };
   }, [visible, slideAnim, drawerWidth]);
 
-  if (!visible) return null;
+  if (!mounted) return null;
 
   return (
     <Modal
-      visible={visible}
+      visible={mounted}
       transparent
       animationType="none"
       onRequestClose={onClose}
@@ -55,6 +69,7 @@ export default function Drawer({ visible, onClose, children }: DrawerProps) {
         >
           {children}
         </Animated.View>
+        {/* keep backdrop transparent so underlying content isn't darkened */}
         <Pressable style={styles.backdrop} onPress={onClose} />
       </View>
     </Modal>
@@ -69,7 +84,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'transparent',
   },
   drawer: {
     height: '100%',

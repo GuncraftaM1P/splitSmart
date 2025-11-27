@@ -15,7 +15,7 @@ export const groupsTable = sqliteTable('groups', {
     .notNull()
     .$type<
       {
-        id: number;
+        id: string;
         description: string;
         amount: number;
         paidBy: string;

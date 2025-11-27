@@ -9,7 +9,8 @@ export interface GroupDetails {
   description: string;
   members: string[];
   expenses: Array<{
-    id: number;
+    id: string;
+    amount: number;
     description: string;
     paidFor: string[];
     paidBy: string;

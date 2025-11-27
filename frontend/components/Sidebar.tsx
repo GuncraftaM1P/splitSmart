@@ -6,49 +6,119 @@ import {
   StyleSheet,
   ActivityIndicator,
   Platform,
+  TextInput,
+  Alert,
 } from 'react-native';
-import { Link } from 'expo-router';
+import { useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import uuid from 'react-native-uuid';
+import appConfig from '../app.json';
 import {
   GroupSummary,
   loadValidatedGroups,
   createGroup as createRemoteGroup,
   appendGroupId,
+  fetchGroupSummaryWithRetry,
   onGroupsChanged,
 } from '@/lib/groupService';
+import { getBackendURL } from '@/constants/api';
 
 type SidebarProps = {
   collapsed?: boolean;
   onToggle?: () => void;
+  ignoreSafeArea?: boolean;
 };
 
-function generateUuid(): string {
-  // Prefer secure native implementation when available
-  try {
-    // @ts-ignore
-    if (typeof globalThis?.crypto?.randomUUID === 'function') {
-      // @ts-ignore
-      return globalThis.crypto.randomUUID();
-    }
-  } catch (_) {
-    // fall through
-  }
-
-  // Fallback simple UUID v4 generator (not cryptographically strong)
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
-
-export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
+export default function Sidebar({
+  collapsed = false,
+  onToggle,
+  ignoreSafeArea = false,
+}: SidebarProps) {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const pathname = usePathname();
   const [groups, setGroups] = React.useState<GroupSummary[]>([]);
   const [loading, setLoading] = React.useState(false);
   const [creating, setCreating] = React.useState(false);
   const [deletingIds, setDeletingIds] = React.useState<string[]>([]);
-  const safeTop = Math.max(insets.top, 20);
+  const safeTop = ignoreSafeArea ? 0 : Math.max(insets.top, 20);
+  const version =
+    (appConfig as any)?.expo?.version ?? (appConfig as any)?.version ?? '?.?.?';
+  const [joinId, setJoinId] = React.useState('');
+  const [joining, setJoining] = React.useState(false);
+  const [joinError, setJoinError] = React.useState<string | null>(null);
+  const [showBackendText, setShowBackendText] = React.useState(false);
+  const backendUrl = getBackendURL();
+  const isWeb = Platform.OS === 'web';
+
+  // Auto-scaling text for the join button: native uses built-in props,
+  // web measures text width with a canvas and adjusts fontSize to fit.
+  function AutoFitText({ children, style }: { children: string; style?: any }) {
+    if (!isWeb) {
+      return (
+        <Text
+          style={style}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+        >
+          {children}
+        </Text>
+      );
+    }
+
+    const [containerWidth, setContainerWidth] = React.useState(0);
+    const [fontSize, setFontSize] = React.useState<number | undefined>(
+      undefined,
+    );
+
+    const baseFontSize =
+      (StyleSheet.flatten(style || {})?.fontSize as number) || 14;
+
+    React.useEffect(() => {
+      if (!containerWidth) return;
+
+      // measure text using canvas
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const fontFamily =
+          (StyleSheet.flatten(style || {})?.fontFamily as string) ||
+          'system-ui, sans-serif';
+        ctx.font = `${baseFontSize}px ${fontFamily}`;
+        const text = String(children);
+        const metrics = ctx.measureText(text || '');
+        const textWidth = metrics.width || 0;
+        if (!textWidth) return;
+        // target width is containerWidth minus some padding
+        const target = Math.max(8, containerWidth - 8);
+        const scale = Math.min(1, target / textWidth);
+        const newSize = Math.max(10, Math.floor(baseFontSize * scale));
+        setFontSize(newSize);
+      } catch (err) {
+        // ignore and keep default
+      }
+    }, [containerWidth, children, baseFontSize, style]);
+
+    return (
+      <View
+        style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+        onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+      >
+        <Text
+          style={[style, { fontSize: fontSize ?? baseFontSize }]}
+          numberOfLines={1}
+        >
+          {children}
+        </Text>
+      </View>
+    );
+  }
+
+  const toggleBackendText = () => {
+    setShowBackendText((v) => !v);
+  };
 
   // Load persisted groups from shared helper
   React.useEffect(() => {
@@ -88,22 +158,19 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
 
   async function handleCreateGroup() {
     setCreating(true);
-    const id = generateUuid();
+    const id = uuid.v4() as string;
 
     try {
       const newGroup = await createRemoteGroup(id);
       if (!newGroup) return;
       await appendGroupId(id);
       setGroups((prev) => [newGroup, ...prev]);
+      // navigate to the new group as the active route (replace history)
+      router.replace(`/group/${id}`);
     } finally {
       setCreating(false);
     }
   }
-
-  const items = [
-    { label: 'Home', href: '/', icon: '🏠' },
-    { label: 'Explore', href: '/explore', icon: '🔍' },
-  ] as const;
 
   if (collapsed) {
     return (
@@ -120,21 +187,6 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           )}
         </View>
 
-        <View style={styles.collapsedNavSection}>
-          {items.map((i) => (
-            <Link key={i.href} href={i.href} asChild>
-              <Pressable
-                style={styles.collapsedIconButton}
-                accessibilityLabel={i.label}
-              >
-                <Text style={styles.collapsedEmoji}>{i.icon}</Text>
-              </Pressable>
-            </Link>
-          ))}
-        </View>
-
-        <View style={styles.collapsedDivider} />
-
         <View style={styles.collapsedGroupsSection}>
           {loading ? (
             <ActivityIndicator color="#007AFF" size="small" />
@@ -142,17 +194,30 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             <Text style={styles.collapsedEmpty}>—</Text>
           ) : (
             groups.map((g) => (
-              <Link key={g.id} href={`/group/${g.id}` as any} asChild>
-                <Pressable
-                  style={styles.collapsedIconButton}
-                  accessibilityLabel={g.name}
-                  disabled={deletingIds.includes(g.id)}
-                >
-                  <Text style={styles.collapsedEmoji}>👥</Text>
-                </Pressable>
-              </Link>
+              <Pressable
+                key={g.id}
+                style={styles.collapsedIconButton}
+                accessibilityLabel={g.name}
+                disabled={deletingIds.includes(g.id)}
+                onPress={() => {
+                  if (pathname === `/group/${g.id}`) return;
+                  router.replace(`/group/${g.id}`);
+                }}
+              >
+                <Text style={styles.collapsedEmoji}>👥</Text>
+              </Pressable>
             ))
           )}
+        </View>
+        <View style={styles.footerCollapsed}>
+          <Pressable
+            onPress={toggleBackendText}
+            accessibilityLabel="Toggle backend url"
+          >
+            <Text style={styles.versionText}>
+              {showBackendText ? String(backendUrl) : `v${version}`}
+            </Text>
+          </Pressable>
         </View>
       </View>
     );
@@ -174,20 +239,6 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
         )}
       </View>
 
-      {/* Navigation Items */}
-      <View style={styles.navSection}>
-        {items.map((i) => (
-          <Link key={i.href} href={i.href} asChild>
-            <Pressable style={styles.navItem}>
-              <View style={styles.navIconContainer}>
-                <Text style={styles.navIcon}>{i.icon}</Text>
-              </View>
-              <Text style={styles.navLabel}>{i.label}</Text>
-            </Pressable>
-          </Link>
-        ))}
-      </View>
-
       {/* Groups section */}
       <View style={styles.groupsSection}>
         <Text style={styles.sectionTitle}>Gruppen</Text>
@@ -200,21 +251,21 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
           <Text style={styles.emptyText}>Keine Gruppen</Text>
         ) : (
           groups.map((g) => (
-            <Link
+            <Pressable
               key={g.id}
-              href={`/group/${g.id}` as any}
-              asChild
-              style={styles.groupLinkWrapper}
+              style={[styles.groupLinkWrapper, styles.groupLink]}
+              onPress={() => {
+                if (pathname === `/group/${g.id}`) return;
+                router.replace(`/group/${g.id}`);
+              }}
             >
-              <Pressable style={styles.groupLink}>
-                <View style={styles.groupIconContainer}>
-                  <Text style={styles.groupIcon}>👥</Text>
-                </View>
-                <Text style={styles.groupName} numberOfLines={1}>
-                  {g.name}
-                </Text>
-              </Pressable>
-            </Link>
+              <View style={styles.groupIconContainer}>
+                <Text style={styles.groupIcon}>👥</Text>
+              </View>
+              <Text style={styles.groupName} numberOfLines={1}>
+                {g.name}
+              </Text>
+            </Pressable>
           ))
         )}
 
@@ -229,6 +280,75 @@ export default function Sidebar({ collapsed = false, onToggle }: SidebarProps) {
             <Text style={styles.addGroupIcon}>{creating ? '⋯' : '+'}</Text>
           </View>
           <Text style={styles.addGroupLabel}>Neue Gruppe</Text>
+        </Pressable>
+        {/* Join group by UUID */}
+        <View style={styles.joinContainer}>
+          <TextInput
+            value={joinId}
+            onChangeText={(t) => {
+              setJoinId(t);
+              if (joinError) setJoinError(null);
+            }}
+            placeholder="Gruppen-ID..."
+            style={[styles.joinInput, isWeb && styles.joinInputWeb]}
+            editable={!joining}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType={Platform.OS === 'web' ? 'default' : 'default'}
+          />
+          <Pressable
+            onPress={async () => {
+              const id = joinId.trim();
+              if (!id) {
+                setJoinError('Bitte eine gültige UUID eingeben.');
+                return;
+              }
+              setJoining(true);
+              setJoinError(null);
+              try {
+                const summary = await fetchGroupSummaryWithRetry(id);
+                if (summary === null) {
+                  setJoinError('Gruppe nicht gefunden. Bitte prüfen.');
+                } else if (summary === undefined) {
+                  setJoinError('Fehler beim Prüfen der Gruppe.');
+                } else {
+                  await appendGroupId(id);
+                  setGroups((prev) => [
+                    summary,
+                    ...prev.filter((g) => g.id !== id),
+                  ]);
+                  setJoinId('');
+                  router.replace(`/group/${id}`);
+                }
+              } catch (err) {
+                console.warn('Join group error', err);
+                setJoinError('Fehler beim Beitreten zur Gruppe.');
+              } finally {
+                setJoining(false);
+              }
+            }}
+            style={[styles.joinButton, isWeb && styles.joinButtonWeb]}
+            disabled={joining}
+          >
+            <AutoFitText
+              style={[styles.joinButtonText, isWeb && styles.joinButtonTextWeb]}
+            >
+              {joining ? '...' : 'Beitreten'}
+            </AutoFitText>
+          </Pressable>
+        </View>
+        {joinError ? (
+          <Text style={styles.joinErrorText}>{joinError}</Text>
+        ) : null}
+      </View>
+      <View style={styles.footer}>
+        <Pressable
+          onPress={toggleBackendText}
+          accessibilityLabel="Toggle backend url"
+        >
+          <Text style={styles.versionText}>
+            {showBackendText ? String(backendUrl) : `v${version}`}
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -453,5 +573,78 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#007AFF',
     fontWeight: '400',
+  },
+  footer: {
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    alignItems: 'center',
+    backgroundColor: '#f7f8fa',
+  },
+  footerCollapsed: {
+    paddingHorizontal: 8,
+    paddingVertical: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    alignItems: 'center',
+    width: '100%',
+  },
+  versionText: {
+    fontSize: 12,
+    color: '#999',
+  },
+  joinContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  joinInput: {
+    flex: 1,
+    height: 40,
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    backgroundColor: '#fff',
+    marginRight: 8,
+  },
+  // Web-specific sizes: input 75%, button 25%
+  joinInputWeb: {
+    flex: undefined,
+    width: '75%',
+    marginRight: 8,
+  },
+  joinButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 40,
+  },
+  joinButtonWeb: {
+    flex: undefined,
+    width: '25%',
+    height: 40,
+    paddingHorizontal: 0,
+  },
+  joinButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  joinButtonTextWeb: {
+    fontSize: 14,
+    textAlign: 'center',
+    includeFontPadding: false,
+    lineHeight: 18,
+  },
+  joinErrorText: {
+    color: '#cc0033',
+    fontSize: 12,
+    marginTop: 8,
+    marginLeft: 4,
   },
 });
