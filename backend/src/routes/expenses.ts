@@ -105,13 +105,11 @@ export async function handleExpensesDelete(
   return new Response('Expense deleted', { status: 200 });
 }
 
-
 export async function handleExpensesPatch(
   request: Request,
   env: Env,
   groupId: string,
 ): Promise<Response> {
-
   const db = drizzle(env.prod_db);
 
   const group = await db
@@ -126,7 +124,13 @@ export async function handleExpensesPatch(
 
   const body = (await request.json()) as ExpenseBody & { expenseId: string };
 
-  if (!body.expenseId || !body.description || !body.amount || !body.paidBy || !body.paidFor) {
+  if (
+    !body.expenseId ||
+    !body.description ||
+    !body.amount ||
+    !body.paidBy ||
+    !body.paidFor
+  ) {
     return new Response('Missing fields', { status: 400 });
   }
 

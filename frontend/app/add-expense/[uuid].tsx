@@ -17,7 +17,10 @@ import { getBackendURL } from '@/constants/api';
 import { fetchGroupDetails } from '@/lib/groupService';
 
 export default function AddExpenseScreen() {
-  const { uuid, expenseId } = useLocalSearchParams<{ uuid: string; expenseId?: string }>();
+  const { uuid, expenseId } = useLocalSearchParams<{
+    uuid: string;
+    expenseId?: string;
+  }>();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -135,8 +138,8 @@ export default function AddExpenseScreen() {
   const saveButtonText = saving
     ? 'Speichern…'
     : isEditing
-    ? 'Aktualisieren'
-    : 'Speichern';
+      ? 'Aktualisieren'
+      : 'Speichern';
 
   // Delete expense handler (only for edit mode)
   const handleDelete = async () => {
@@ -209,104 +212,107 @@ export default function AddExpenseScreen() {
           <Text style={styles.loadingText}>Lade Ausgabe…</Text>
         </View>
       ) : (
-      <ScrollView
-        style={styles.form}
-        contentContainerStyle={{ paddingBottom: 40 }}
-      >
-        <View style={styles.field}>
-          <Text style={styles.label}>Beschreibung</Text>
-          <TextInput
-            style={styles.input}
-            value={description}
-            onChangeText={setDescription}
-            placeholder="z. B. Abendessen"
-          />
-        </View>
+        <ScrollView
+          style={styles.form}
+          contentContainerStyle={{ paddingBottom: 40 }}
+        >
+          <View style={styles.field}>
+            <Text style={styles.label}>Beschreibung</Text>
+            <TextInput
+              style={styles.input}
+              value={description}
+              onChangeText={setDescription}
+              placeholder="z. B. Abendessen"
+            />
+          </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Betrag</Text>
-          <TextInput
-            style={styles.input}
-            value={amount}
-            onChangeText={setAmount}
-            placeholder="z. B. 12.50"
-            keyboardType="numeric"
-          />
-        </View>
+          <View style={styles.field}>
+            <Text style={styles.label}>Betrag</Text>
+            <TextInput
+              style={styles.input}
+              value={amount}
+              onChangeText={setAmount}
+              placeholder="z. B. 12.50"
+              keyboardType="numeric"
+            />
+          </View>
 
-        <View style={styles.field}>
-          <Text style={styles.label}>Bezahlt von</Text>
-          {(group?.members ?? []).map((m: string) => (
-            <Pressable
-              key={m}
-              style={[
-                styles.selectRow,
-                paidBy === m ? styles.selectRowActive : null,
-              ]}
-              onPress={() => setPaidBy(m)}
-            >
-              <Text style={styles.selectText}>{m}</Text>
-              <Text style={{ color: paidBy === m ? '#007AFF' : '#ccc' }}>
-                {paidBy === m ? '●' : '○'}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-
-        <View style={styles.field}>
-          <Text style={styles.label}>Teilnehmende (Für)</Text>
-          {(group?.members ?? []).map((m: string) => {
-            const sel = paidFor.includes(m);
-            return (
+          <View style={styles.field}>
+            <Text style={styles.label}>Bezahlt von</Text>
+            {(group?.members ?? []).map((m: string) => (
               <Pressable
                 key={m}
-                style={[styles.selectRow, sel ? styles.selectRowActive : null]}
-                onPress={() => {
-                  if (sel) setPaidFor((p) => p.filter((x) => x !== m));
-                  else setPaidFor((p) => [...p, m]);
-                }}
+                style={[
+                  styles.selectRow,
+                  paidBy === m ? styles.selectRowActive : null,
+                ]}
+                onPress={() => setPaidBy(m)}
               >
                 <Text style={styles.selectText}>{m}</Text>
-                <Text style={{ color: sel ? '#007AFF' : '#ccc' }}>
-                  {sel ? '✓' : ''}
+                <Text style={{ color: paidBy === m ? '#007AFF' : '#ccc' }}>
+                  {paidBy === m ? '●' : '○'}
                 </Text>
               </Pressable>
-            );
-          })}
-        </View>
+            ))}
+          </View>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+          <View style={styles.field}>
+            <Text style={styles.label}>Teilnehmende (Für)</Text>
+            {(group?.members ?? []).map((m: string) => {
+              const sel = paidFor.includes(m);
+              return (
+                <Pressable
+                  key={m}
+                  style={[
+                    styles.selectRow,
+                    sel ? styles.selectRowActive : null,
+                  ]}
+                  onPress={() => {
+                    if (sel) setPaidFor((p) => p.filter((x) => x !== m));
+                    else setPaidFor((p) => [...p, m]);
+                  }}
+                >
+                  <Text style={styles.selectText}>{m}</Text>
+                  <Text style={{ color: sel ? '#007AFF' : '#ccc' }}>
+                    {sel ? '✓' : ''}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
 
-        <View style={styles.buttonsRow}>
-          <Pressable
-            style={[styles.btn, styles.btnCancel]}
-            onPress={() => router.back()}
-            disabled={saving || deleting}
-          >
-            <Text style={styles.btnCancelText}>Abbrechen</Text>
-          </Pressable>
-          <Pressable
-            style={[styles.btn, styles.btnSave]}
-            onPress={handleSave}
-            disabled={saving || deleting}
-          >
-            <Text style={styles.btnSaveText}>{saveButtonText}</Text>
-          </Pressable>
-        </View>
+          {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        {/* Delete button only in edit mode */}
-        {isEditing && (
-          <Pressable
-            style={[styles.btn, styles.btnDelete, { marginTop: 24 }]}
-            onPress={confirmDelete}
-            disabled={saving || deleting}
-          >
-            <Text style={styles.btnDeleteText}>
-              {deleting ? 'Löschen…' : 'Ausgabe löschen'}
-            </Text>
-          </Pressable>
-        )}
-      </ScrollView>
+          <View style={styles.buttonsRow}>
+            <Pressable
+              style={[styles.btn, styles.btnCancel]}
+              onPress={() => router.back()}
+              disabled={saving || deleting}
+            >
+              <Text style={styles.btnCancelText}>Abbrechen</Text>
+            </Pressable>
+            <Pressable
+              style={[styles.btn, styles.btnSave]}
+              onPress={handleSave}
+              disabled={saving || deleting}
+            >
+              <Text style={styles.btnSaveText}>{saveButtonText}</Text>
+            </Pressable>
+          </View>
+
+          {/* Delete button only in edit mode */}
+          {isEditing && (
+            <Pressable
+              style={[styles.btn, styles.btnDelete, { marginTop: 24 }]}
+              onPress={confirmDelete}
+              disabled={saving || deleting}
+            >
+              <Text style={styles.btnDeleteText}>
+                {deleting ? 'Löschen…' : 'Ausgabe löschen'}
+              </Text>
+            </Pressable>
+          )}
+        </ScrollView>
       )}
     </View>
   );

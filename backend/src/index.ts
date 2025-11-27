@@ -6,7 +6,11 @@ import {
   handleAddMember,
   handleRemoveMember,
 } from './routes/groups.js';
-import { handleExpensesPostUpdate, handleExpensesDelete, handleExpensesPatch } from './routes/expenses.js';
+import {
+  handleExpensesPostUpdate,
+  handleExpensesDelete,
+  handleExpensesPatch,
+} from './routes/expenses.js';
 import openapi from './openapi.json';
 
 export const corsHeaders = {

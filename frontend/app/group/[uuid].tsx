@@ -207,8 +207,8 @@ export default function GroupScreen() {
                 positive
                   ? styles.memberCardPositive
                   : negative
-                  ? styles.memberCardNegative
-                  : null,
+                    ? styles.memberCardNegative
+                    : null,
               ]}
             >
               <Text style={styles.memberCardName}>{name}</Text>
@@ -721,7 +721,11 @@ export default function GroupScreen() {
                               `/add-expense/${uuid}?expenseId=${exp.id}` as unknown as any,
                             )
                           }
-                          style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            flex: 1,
+                          }}
                         >
                           <Text style={styles.expensePrice}>
                             €{amount.toFixed(2)}
