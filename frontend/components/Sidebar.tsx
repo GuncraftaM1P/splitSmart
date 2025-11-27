@@ -49,6 +49,72 @@ export default function Sidebar({
   const [joinError, setJoinError] = React.useState<string | null>(null);
   const [showBackendText, setShowBackendText] = React.useState(false);
   const backendUrl = getBackendURL();
+  const isWeb = Platform.OS === 'web';
+
+  // Auto-scaling text for the join button: native uses built-in props,
+  // web measures text width with a canvas and adjusts fontSize to fit.
+  function AutoFitText({ children, style }: { children: string; style?: any }) {
+    if (!isWeb) {
+      return (
+        <Text
+          style={style}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.7}
+        >
+          {children}
+        </Text>
+      );
+    }
+
+    const [containerWidth, setContainerWidth] = React.useState(0);
+    const [fontSize, setFontSize] = React.useState<number | undefined>(
+      undefined,
+    );
+
+    const baseFontSize =
+      (StyleSheet.flatten(style || {})?.fontSize as number) || 14;
+
+    React.useEffect(() => {
+      if (!containerWidth) return;
+
+      // measure text using canvas
+      try {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const fontFamily =
+          (StyleSheet.flatten(style || {})?.fontFamily as string) ||
+          'system-ui, sans-serif';
+        ctx.font = `${baseFontSize}px ${fontFamily}`;
+        const text = String(children);
+        const metrics = ctx.measureText(text || '');
+        const textWidth = metrics.width || 0;
+        if (!textWidth) return;
+        // target width is containerWidth minus some padding
+        const target = Math.max(8, containerWidth - 8);
+        const scale = Math.min(1, target / textWidth);
+        const newSize = Math.max(10, Math.floor(baseFontSize * scale));
+        setFontSize(newSize);
+      } catch (err) {
+        // ignore and keep default
+      }
+    }, [containerWidth, children, baseFontSize, style]);
+
+    return (
+      <View
+        style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}
+        onLayout={(e) => setContainerWidth(e.nativeEvent.layout.width)}
+      >
+        <Text
+          style={[style, { fontSize: fontSize ?? baseFontSize }]}
+          numberOfLines={1}
+        >
+          {children}
+        </Text>
+      </View>
+    );
+  }
 
   const toggleBackendText = () => {
     setShowBackendText((v) => !v);
@@ -144,7 +210,10 @@ export default function Sidebar({
           )}
         </View>
         <View style={styles.footerCollapsed}>
-          <Pressable onPress={toggleBackendText} accessibilityLabel="Toggle backend url">
+          <Pressable
+            onPress={toggleBackendText}
+            accessibilityLabel="Toggle backend url"
+          >
             <Text style={styles.versionText}>
               {showBackendText ? String(backendUrl) : `v${version}`}
             </Text>
@@ -221,7 +290,7 @@ export default function Sidebar({
               if (joinError) setJoinError(null);
             }}
             placeholder="Gruppen-ID..."
-            style={styles.joinInput}
+            style={[styles.joinInput, isWeb && styles.joinInputWeb]}
             editable={!joining}
             autoCapitalize="none"
             autoCorrect={false}
@@ -258,12 +327,14 @@ export default function Sidebar({
                 setJoining(false);
               }
             }}
-            style={styles.joinButton}
+            style={[styles.joinButton, isWeb && styles.joinButtonWeb]}
             disabled={joining}
           >
-            <Text style={styles.joinButtonText}>
+            <AutoFitText
+              style={[styles.joinButtonText, isWeb && styles.joinButtonTextWeb]}
+            >
               {joining ? '...' : 'Beitreten'}
-            </Text>
+            </AutoFitText>
           </Pressable>
         </View>
         {joinError ? (
@@ -271,8 +342,13 @@ export default function Sidebar({
         ) : null}
       </View>
       <View style={styles.footer}>
-        <Pressable onPress={toggleBackendText} accessibilityLabel="Toggle backend url">
-          <Text style={styles.versionText}>{showBackendText ? String(backendUrl) : `v${version}`}</Text>
+        <Pressable
+          onPress={toggleBackendText}
+          accessibilityLabel="Toggle backend url"
+        >
+          <Text style={styles.versionText}>
+            {showBackendText ? String(backendUrl) : `v${version}`}
+          </Text>
         </Pressable>
       </View>
     </View>
@@ -533,6 +609,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     marginRight: 8,
   },
+  // Web-specific sizes: input 75%, button 25%
+  joinInputWeb: {
+    flex: undefined,
+    width: '75%',
+    marginRight: 8,
+  },
   joinButton: {
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -540,10 +622,24 @@ const styles = StyleSheet.create({
     backgroundColor: '#007AFF',
     alignItems: 'center',
     justifyContent: 'center',
+    height: 40,
+  },
+  joinButtonWeb: {
+    flex: undefined,
+    width: '25%',
+    height: 40,
+    paddingHorizontal: 0,
   },
   joinButtonText: {
     color: '#fff',
     fontWeight: '600',
+    fontSize: 14,
+  },
+  joinButtonTextWeb: {
+    fontSize: 14,
+    textAlign: 'center',
+    includeFontPadding: false,
+    lineHeight: 18,
   },
   joinErrorText: {
     color: '#cc0033',
