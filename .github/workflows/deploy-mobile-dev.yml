@@ -2,7 +2,7 @@ name: Sign & Build & Distribute Mobile
 
 on:
   push:
-#    branches: [dev]
+    branches: [dev]
   workflow_dispatch:
 
 concurrency:
