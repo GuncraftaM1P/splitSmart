@@ -1,4 +1,4 @@
-name: Sign & Build & Distribute iOS
+name: Sign & Build & Distribute Mobile
 
 on:
   push:
@@ -7,7 +7,16 @@ on:
 
 jobs:
   deploy:
-    runs-on: macos-latest
+    strategy:
+      matrix:
+        include:
+          - platform: android
+            runner: ubuntu-latest
+          - platform: ios
+            runner: macos-latest
+
+    runs-on: ${{ matrix.runner }}
+
     defaults:
       run:
         working-directory: frontend
@@ -33,7 +42,7 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: NODE_ENV=development eas build --platform ios --local --non-interactive --output=./app-build
+        run: NODE_ENV=development eas build --platform ${{ matrix.platform }} --local --non-interactive --output=./app-build
 
-      - name: Submit to Google Play Open Testing
-        run: eas submit --platform ios --non-interactive --path app-build
+      - name: Submit to EAS
+        run: eas submit --platform ${{ matrix.platform }} --non-interactive --path app-build
