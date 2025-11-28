@@ -2,7 +2,7 @@ name: Sign & Build & Distribute Mobile
 
 on:
   push:
-    branches: [dev, main]
+  #    branches: [dev, main]
   workflow_dispatch:
 
 concurrency:
@@ -52,13 +52,20 @@ jobs:
         run: |
           WHAT_TO_TEST=""
           if [ "${{ matrix.platform }}" = "ios" ]; then
-            MSG="$(git log -1 --pretty=%B)"
-            WHAT_TO_TEST="--what-to-test=$MSG"
+            WHAT_TO_TEST="$(printf '%q' "$(git log -1 --pretty=%B)")"
           fi
 
-          eas submit \
-            --platform ${{ matrix.platform }} \
-            --non-interactive \
-            --path app-build \
-            --no-wait \
-            $WHAT_TO_TEST
+          if [ "${{ matrix.platform }}" = "ios" ]; then
+            eas submit \
+              --platform ios \
+              --non-interactive \
+              --path app-build \
+              --no-wait \
+              --what-to-test "$WHAT_TO_TEST"
+          else
+            eas submit \
+              --platform ${{ matrix.platform }} \
+              --non-interactive \
+              --path app-build \
+              --no-wait
+          fi
