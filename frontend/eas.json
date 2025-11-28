@@ -21,10 +21,7 @@
       },
       "ios": {
         "ascAppId": "6755814177",
-        "groups": [
-          "Internal Testers",
-          "External Testers"
-        ]
+        "groups": ["External Testers"]
       }
     }
   }
