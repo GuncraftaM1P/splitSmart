@@ -38,10 +38,7 @@
           "image": "./assets/images/logo_only.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#23383e",
-          "dark": {
-            "backgroundColor": "#23383e"
-          }
+          "backgroundColor": "#23383e"
         }
       ]
     ],
