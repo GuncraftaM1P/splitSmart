@@ -2,8 +2,12 @@ name: Sign & Build & Distribute Mobile
 
 on:
   push:
-    branches: [dev]
+#    branches: [dev]
   workflow_dispatch:
+
+concurrency:
+  group: mobile-build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -45,4 +49,4 @@ jobs:
         run: NODE_ENV=development eas build --platform ${{ matrix.platform }} --local --non-interactive --output=./app-build
 
       - name: Submit to EAS
-        run: eas submit --platform ${{ matrix.platform }} --non-interactive --path app-build
+        run: eas submit --platform ${{ matrix.platform }} --non-interactive --path app-build --no-wait
