@@ -5,7 +5,7 @@
   "scripts": {
     "build": "NODE_ENV=production npx drizzle-kit pull && npx tsc",
     "db:reset": "rm -rf .wrangler && npx wrangler d1 execute split_smart -e dev --local --command 'SELECT 1;' && npx drizzle-kit push",
-    "start": "wrangler dev -e dev --ip 0.0.0.0"
+    "start": "npx wrangler@latest dev -e dev --ip 0.0.0.0"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.8.71",
