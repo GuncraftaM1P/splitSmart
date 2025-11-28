@@ -1,4 +1,4 @@
-name: Deploy Frontend to Dev
+name: Sign & Build & Distribute iOS
 
 on:
   push:
