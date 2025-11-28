@@ -2,7 +2,7 @@ name: Sign & Build & Distribute Mobile
 
 on:
   push:
-  #    branches: [dev, main]
+    branches: [dev, main]
   workflow_dispatch:
 
 concurrency:
@@ -46,7 +46,13 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: NODE_ENV=development eas build --platform ${{ matrix.platform }} --local --non-interactive --output=./app-build
+        run: |
+          if [[ "${GITHUB_REF##*/}" == "main" ]]; then
+            export NODE_ENV=production
+          else
+            export NODE_ENV=development
+          fi
+          eas build --platform ${{ matrix.platform }} --local --non-interactive --output=./app-build
 
       - name: Submit to EAS
         run: eas submit --platform ${{ matrix.platform }} --non-interactive --path app-build --no-wait
