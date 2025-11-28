@@ -28,6 +28,7 @@ import {
   addGroupMember,
   removeGroupMember,
 } from '@/lib/groupService';
+import { renameGroupMember } from '@/lib/groupService';
 import { loadStoredGroupIds } from '@/lib/groupService';
 
 export default function GroupScreen() {
@@ -45,6 +46,9 @@ export default function GroupScreen() {
   const [memberName, setMemberName] = useState('');
   const [addingMember, setAddingMember] = useState(false);
   const [removingMember, setRemovingMember] = useState<string | null>(null);
+  const [editingMember, setEditingMember] = useState<string | null>(null);
+  const [editedMemberName, setEditedMemberName] = useState('');
+  const [renamingMember, setRenamingMember] = useState<string | null>(null);
   const isMountedRef = useRef(true);
   const [titleWidth, setTitleWidth] = useState(0);
   const [descriptionWidth, setDescriptionWidth] = useState(0);
@@ -211,7 +215,91 @@ export default function GroupScreen() {
                     : null,
               ]}
             >
-              <Text style={styles.memberCardName}>{name}</Text>
+              {/* Inline rename: if editing this member, show input + actions */}
+              {editingMember === name ? (
+                <View>
+                  <TextInput
+                    style={[styles.memberInput, { marginBottom: 8 }]}
+                    value={editedMemberName}
+                    onChangeText={setEditedMemberName}
+                    autoFocus
+                    onSubmitEditing={() => {
+                      /* handled by save button */
+                    }}
+                  />
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Pressable
+                      style={styles.addMemberButton}
+                      onPress={async () => {
+                        const newName = editedMemberName.trim();
+                        if (!uuid || !data) return;
+                        if (newName.length === 0) {
+                          setError('Name darf nicht leer sein');
+                          return;
+                        }
+                        if (data.members.includes(newName)) {
+                          setError('Mitglied existiert bereits');
+                          return;
+                        }
+                        setRenamingMember(name);
+                        const ok = await renameGroupMember(uuid, name, newName);
+                        setRenamingMember(null);
+                        if (ok) {
+                          // optimistic update: replace member and update expenses
+                          setData((old) => {
+                            if (!old) return old;
+                            const members = old.members.map((m) =>
+                              m === name ? newName : m,
+                            );
+                            const expenses = (old.expenses || []).map((exp: any) => ({
+                              ...exp,
+                              paidBy: exp.paidBy === name ? newName : exp.paidBy,
+                              paidFor: Array.isArray(exp.paidFor)
+                                ? exp.paidFor.map((p: string) =>
+                                    p === name ? newName : p,
+                                  )
+                                : exp.paidFor,
+                            }));
+                            return { ...old, members, expenses };
+                          });
+                          setEditingMember(null);
+                        } else {
+                          setError('Mitglied konnte nicht umbenannt werden');
+                        }
+                      }}
+                      disabled={renamingMember === name}
+                    >
+                      <Text style={styles.addMemberButtonText}>
+                        {renamingMember === name ? '…' : 'Speichern'}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        setEditingMember(null);
+                        setEditedMemberName('');
+                      }}
+                      style={styles.cancelAddButton}
+                    >
+                      <Text style={styles.cancelAddButtonText}>Abbrechen</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : (
+                <>
+                  <Text style={styles.memberCardName}>{name}</Text>
+                  <View style={{ position: 'absolute', top: 8, left: 8 }}>
+                    <Pressable
+                      onPress={() => {
+                        setEditingMember(name);
+                        setEditedMemberName(name);
+                      }}
+                      style={styles.iconButton}
+                    >
+                      <IconSymbol size={18} name="pencil" color="#666" />
+                    </Pressable>
+                  </View>
+                </>
+              )}
               <Text style={styles.memberBalance}>{format(bal)}</Text>
               <Pressable
                 style={styles.removeMemberSmall}

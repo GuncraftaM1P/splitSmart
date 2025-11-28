@@ -258,3 +258,25 @@ export async function removeGroupMember(
     return false;
   }
 }
+
+export async function renameGroupMember(
+  groupId: string,
+  oldName: string,
+  newName: string,
+): Promise<boolean> {
+  try {
+    const res = await fetch(getEndpoint(`groups/${groupId}/rename-member`), {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ oldName, newName }),
+    });
+    if (!res.ok) {
+      console.warn('Failed to rename member', await res.text());
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.warn('Error renaming member', err);
+    return false;
+  }
+}

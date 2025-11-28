@@ -75,6 +75,76 @@ export async function handleRemoveMember(
   return new Response('Member removed', { status: 200 });
 }
 
+export async function handleRenameMember(
+  request: Request,
+  env: Env,
+  groupId: string,
+): Promise<Response> {
+  const db = drizzle(env.prod_db);
+  const payload = (await request.json().catch(() => null)) as
+    | { oldName?: string; newName?: string }
+    | null;
+
+  if (
+    !payload ||
+    typeof payload.oldName !== 'string' ||
+    !payload.oldName.trim() ||
+    typeof payload.newName !== 'string' ||
+    !payload.newName.trim()
+  ) {
+    return new Response('Missing or invalid oldName/newName', { status: 400 });
+  }
+
+  const oldName = payload.oldName.trim();
+  const newName = payload.newName.trim();
+
+  if (oldName === newName) {
+    return new Response('Old and new name are identical', { status: 400 });
+  }
+
+  if (newName.length > 40) {
+    return new Response('New name too long', { status: 400 });
+  }
+
+  // Fetch group
+  const group = await db
+    .select()
+    .from(groupsTable)
+    .where(eq(groupsTable.id, groupId))
+    .get();
+  if (!group) {
+    return new Response('Group not found', { status: 404 });
+  }
+
+  const members: string[] = Array.isArray(group.members) ? group.members : [];
+  if (!members.includes(oldName)) {
+    return new Response('Member not found', { status: 404 });
+  }
+  if (members.includes(newName)) {
+    return new Response('Member with new name already exists', { status: 409 });
+  }
+
+  const newMembers = members.map((m) => (m === oldName ? newName : m));
+
+  // Update any expenses that reference the member
+  const expenses: any[] = Array.isArray(group.expenses) ? group.expenses : [];
+  const newExpenses = expenses.map((exp) => {
+    if (!exp || typeof exp !== 'object') return exp;
+    const paidBy = exp.paidBy === oldName ? newName : exp.paidBy;
+    const paidFor = Array.isArray(exp.paidFor)
+      ? exp.paidFor.map((p: string) => (p === oldName ? newName : p))
+      : exp.paidFor;
+    return { ...exp, paidBy, paidFor };
+  });
+
+  await db
+    .update(groupsTable)
+    .set({ members: newMembers, expenses: newExpenses })
+    .where(eq(groupsTable.id, groupId));
+
+  return new Response('Member renamed', { status: 200 });
+}
+
 export async function handleGetInfo(
   request: Request,
   env: Env,

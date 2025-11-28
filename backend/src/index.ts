@@ -5,6 +5,7 @@ import {
   handleDelete,
   handleAddMember,
   handleRemoveMember,
+  handleRenameMember,
 } from './routes/groups.js';
 import {
   handleExpensesPostUpdate,
@@ -138,6 +139,7 @@ const routes: Record<
   /* Member routes */
   'POST:/groups/add-member': handleAddMember,
   'DELETE:/groups/remove-member': handleRemoveMember,
+  'PATCH:/groups/rename-member': handleRenameMember,
 
   /* Expenses routes */
   'POST:/groups/expenses': handleExpensesPostUpdate,
