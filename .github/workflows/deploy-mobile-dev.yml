@@ -52,7 +52,8 @@ jobs:
         run: |
           WHAT_TO_TEST=""
           if [ "${{ matrix.platform }}" = "ios" ]; then
-            WHAT_TO_TEST="--what-to-test=\"$(git log -1 --pretty=%B)\""
+            MSG="$(git log -1 --pretty=%B)"
+            WHAT_TO_TEST="--what-to-test=$MSG"
           fi
 
           eas submit \
