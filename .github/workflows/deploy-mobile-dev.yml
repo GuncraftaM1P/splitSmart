@@ -49,23 +49,4 @@ jobs:
         run: NODE_ENV=development eas build --platform ${{ matrix.platform }} --local --non-interactive --output=./app-build
 
       - name: Submit to EAS
-        run: |
-          WHAT_TO_TEST=""
-          if [ "${{ matrix.platform }}" = "ios" ]; then
-            WHAT_TO_TEST="$(printf '%q' "$(git log -1 --pretty=%B)")"
-          fi
-
-          if [ "${{ matrix.platform }}" = "ios" ]; then
-            eas submit \
-              --platform ios \
-              --non-interactive \
-              --path app-build \
-              --no-wait \
-              --what-to-test "$WHAT_TO_TEST"
-          else
-            eas submit \
-              --platform ${{ matrix.platform }} \
-              --non-interactive \
-              --path app-build \
-              --no-wait
-          fi
+        run: eas submit --platform ${{ matrix.platform }} --non-interactive --path app-build --no-wait
