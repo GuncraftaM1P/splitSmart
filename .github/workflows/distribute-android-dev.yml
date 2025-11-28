@@ -3,6 +3,7 @@ name: Deploy Frontend to Dev
 on:
   push:
     branches: [dev]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -20,9 +21,11 @@ jobs:
         with:
           node-version: 20
           cache: npm
+          
       - name: Setup Expo and EAS
         uses: expo/expo-github-action@v8
         with:
+          expo-version: latest
           eas-version: latest
           token: ${{ secrets.EXPO_TOKEN }}
 
@@ -30,15 +33,7 @@ jobs:
         run: npm ci
 
       - name: Build
-        run: NODE_ENV=development npx eas-cli@latest build --platform android --local --non-interactive
+        run: NODE_ENV=development eas build --platform android --local --non-interactive --output=./app-build
 
       - name: Submit to Google Play Open Testing
-        run: |
-          # find the first .aab in the frontend working directory
-          AAB=$(find . -type f -name '*.aab' -print -quit)
-          if [ -z "$AAB" ]; then
-            echo "No .aab artifact found in frontend" >&2
-            exit 1
-          fi
-          echo "Submitting $AAB to Google Play (open testing)"
-          npx eas-cli@latest submit --platform android --non-interactive --path="$AAB" --no-wait
+        run: eas submit --platform android --non-interactive --path app-build

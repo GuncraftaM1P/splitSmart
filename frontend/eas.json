@@ -20,7 +20,10 @@
         "releaseStatus": "draft"
       },
       "ios": {
-        "groups": ["Internal Testers", "External Testers"]
+        "groups": [
+          "Internal Testers",
+          "External Testers"
+        ]
       }
     }
   }
