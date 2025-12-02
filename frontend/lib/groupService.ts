@@ -259,24 +259,28 @@ export async function removeGroupMember(
   }
 }
 
+export type ApiResult = { ok: boolean; status: number; body: string };
+
 export async function renameGroupMember(
   groupId: string,
   oldName: string,
   newName: string,
-): Promise<boolean> {
+): Promise<ApiResult> {
   try {
-    const res = await fetch(getEndpoint(`groups/${groupId}/rename-member`), {
+    const url = getEndpoint(`groups/${groupId}/rename-member`);
+    console.log('[API] renameGroupMember URL:', url);
+    console.log('[API] renameGroupMember payload:', { oldName, newName });
+    const res = await fetch(url, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ oldName, newName }),
     });
-    if (!res.ok) {
-      console.warn('Failed to rename member', await res.text());
-      return false;
-    }
-    return true;
+    const text = await res.text();
+    console.log('[API] Response:', { status: res.status, ok: res.ok, body: text });
+
+    return { ok: res.ok, status: res.status, body: text };
   } catch (err) {
-    console.warn('Error renaming member', err);
-    return false;
+    console.warn('[API] Exception:', err);
+    return { ok: false, status: 0, body: String(err ?? 'Exception') };
   }
 }

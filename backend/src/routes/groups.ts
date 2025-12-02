@@ -85,6 +85,13 @@ export async function handleRenameMember(
     | { oldName?: string; newName?: string }
     | null;
 
+  // Debug: log received payload and groupId to help diagnose 403/handler reachability
+  try {
+    console.log(`[HANDLER] handleRenameMember groupId=${groupId} payload=${JSON.stringify(payload)}`);
+  } catch (e) {
+    // ignore
+  }
+
   if (
     !payload ||
     typeof payload.oldName !== 'string' ||

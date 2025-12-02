@@ -8,6 +8,7 @@ import {
   Platform,
   TextInput,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -187,28 +188,34 @@ export default function Sidebar({
           )}
         </View>
 
-        <View style={styles.collapsedGroupsSection}>
-          {loading ? (
-            <ActivityIndicator color="#007AFF" size="small" />
-          ) : groups.length === 0 ? (
-            <Text style={styles.collapsedEmpty}>—</Text>
-          ) : (
-            groups.map((g) => (
-              <Pressable
-                key={g.id}
-                style={styles.collapsedIconButton}
-                accessibilityLabel={g.name}
-                disabled={deletingIds.includes(g.id)}
-                onPress={() => {
-                  if (pathname === `/group/${g.id}`) return;
-                  router.replace(`/group/${g.id}`);
-                }}
-              >
-                <Text style={styles.collapsedEmoji}>👥</Text>
-              </Pressable>
-            ))
-          )}
-        </View>
+        <ScrollView 
+          style={styles.scrollContainer}
+          contentContainerStyle={styles.collapsedScrollContent}
+          showsVerticalScrollIndicator={true}
+        >
+          <View style={styles.collapsedGroupsSection}>
+            {loading ? (
+              <ActivityIndicator color="#007AFF" size="small" />
+            ) : groups.length === 0 ? (
+              <Text style={styles.collapsedEmpty}>—</Text>
+            ) : (
+              groups.map((g) => (
+                <Pressable
+                  key={g.id}
+                  style={styles.collapsedIconButton}
+                  accessibilityLabel={g.name}
+                  disabled={deletingIds.includes(g.id)}
+                  onPress={() => {
+                    if (pathname === `/group/${g.id}`) return;
+                    router.replace(`/group/${g.id}`);
+                  }}
+                >
+                  <Text style={styles.collapsedEmoji}>👥</Text>
+                </Pressable>
+              ))
+            )}
+          </View>
+        </ScrollView>
         <View style={styles.footerCollapsed}>
           <Pressable
             onPress={toggleBackendText}
@@ -239,108 +246,116 @@ export default function Sidebar({
         )}
       </View>
 
-      {/* Groups section */}
-      <View style={styles.groupsSection}>
-        <Text style={styles.sectionTitle}>Gruppen</Text>
+      {/* Scrollable content */}
+      <ScrollView 
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
+      >
+        {/* Groups section */}
+        <View style={styles.groupsSection}>
+          <Text style={styles.sectionTitle}>Gruppen</Text>
 
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator color="#007AFF" />
-          </View>
-        ) : groups.length === 0 ? (
-          <Text style={styles.emptyText}>Keine Gruppen</Text>
-        ) : (
-          groups.map((g) => (
-            <Pressable
-              key={g.id}
-              style={[styles.groupLinkWrapper, styles.groupLink]}
-              onPress={() => {
-                if (pathname === `/group/${g.id}`) return;
-                router.replace(`/group/${g.id}`);
-              }}
-            >
-              <View style={styles.groupIconContainer}>
-                <Text style={styles.groupIcon}>👥</Text>
-              </View>
-              <Text style={styles.groupName} numberOfLines={1}>
-                {g.name}
-              </Text>
-            </Pressable>
-          ))
-        )}
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator color="#007AFF" />
+            </View>
+          ) : groups.length === 0 ? (
+            <Text style={styles.emptyText}>Keine Gruppen</Text>
+          ) : (
+            groups.map((g) => (
+              <Pressable
+                key={g.id}
+                style={[styles.groupLinkWrapper, styles.groupLink]}
+                onPress={() => {
+                  if (pathname === `/group/${g.id}`) return;
+                  router.replace(`/group/${g.id}`);
+                }}
+              >
+                <View style={styles.groupIconContainer}>
+                  <Text style={styles.groupIcon}>👥</Text>
+                </View>
+                <Text style={styles.groupName} numberOfLines={1}>
+                  {g.name}
+                </Text>
+              </Pressable>
+            ))
+          )}
 
-        {/* Add group button styled like a group item */}
-        <Pressable
-          onPress={handleCreateGroup}
-          accessibilityLabel="Create new group"
-          style={styles.addGroupButton}
-          disabled={creating}
-        >
-          <View style={styles.groupIconContainer}>
-            <Text style={styles.addGroupIcon}>{creating ? '⋯' : '+'}</Text>
-          </View>
-          <Text style={styles.addGroupLabel}>Neue Gruppe</Text>
-        </Pressable>
-        {/* Join group by UUID */}
-        <View style={styles.joinContainer}>
-          <TextInput
-            value={joinId}
-            onChangeText={(t) => {
-              setJoinId(t);
-              if (joinError) setJoinError(null);
-            }}
-            placeholder="Gruppen-ID..."
-            style={[styles.joinInput, isWeb && styles.joinInputWeb]}
-            editable={!joining}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType={Platform.OS === 'web' ? 'default' : 'default'}
-          />
+          {/* Add group button styled like a group item */}
           <Pressable
-            onPress={async () => {
-              const id = joinId.trim();
-              if (!id) {
-                setJoinError('Bitte eine gültige UUID eingeben.');
-                return;
-              }
-              setJoining(true);
-              setJoinError(null);
-              try {
-                const summary = await fetchGroupSummaryWithRetry(id);
-                if (summary === null) {
-                  setJoinError('Gruppe nicht gefunden. Bitte prüfen.');
-                } else if (summary === undefined) {
-                  setJoinError('Fehler beim Prüfen der Gruppe.');
-                } else {
-                  await appendGroupId(id);
-                  setGroups((prev) => [
-                    summary,
-                    ...prev.filter((g) => g.id !== id),
-                  ]);
-                  setJoinId('');
-                  router.replace(`/group/${id}`);
-                }
-              } catch (err) {
-                console.warn('Join group error', err);
-                setJoinError('Fehler beim Beitreten zur Gruppe.');
-              } finally {
-                setJoining(false);
-              }
-            }}
-            style={[styles.joinButton, isWeb && styles.joinButtonWeb]}
-            disabled={joining}
+            onPress={handleCreateGroup}
+            accessibilityLabel="Create new group"
+            style={styles.addGroupButton}
+            disabled={creating}
           >
-            <AutoFitText
-              style={[styles.joinButtonText, isWeb && styles.joinButtonTextWeb]}
-            >
-              {joining ? '...' : 'Beitreten'}
-            </AutoFitText>
+            <View style={styles.groupIconContainer}>
+              <Text style={styles.addGroupIcon}>{creating ? '⋯' : '+'}</Text>
+            </View>
+            <Text style={styles.addGroupLabel}>Neue Gruppe</Text>
           </Pressable>
+          {/* Join group by UUID */}
+          <View style={styles.joinContainer}>
+            <TextInput
+              value={joinId}
+              onChangeText={(t) => {
+                setJoinId(t);
+                if (joinError) setJoinError(null);
+              }}
+              placeholder="Gruppen-ID..."
+              style={[styles.joinInput, isWeb && styles.joinInputWeb]}
+              editable={!joining}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType={Platform.OS === 'web' ? 'default' : 'default'}
+            />
+            <Pressable
+              onPress={async () => {
+                const id = joinId.trim();
+                if (!id) {
+                  setJoinError('Bitte eine gültige UUID eingeben.');
+                  return;
+                }
+                setJoining(true);
+                setJoinError(null);
+                try {
+                  const summary = await fetchGroupSummaryWithRetry(id);
+                  if (summary === null) {
+                    setJoinError('Gruppe nicht gefunden. Bitte prüfen.');
+                  } else if (summary === undefined) {
+                    setJoinError('Fehler beim Prüfen der Gruppe.');
+                  } else {
+                    await appendGroupId(id);
+                    setGroups((prev) => [
+                      summary,
+                      ...prev.filter((g) => g.id !== id),
+                    ]);
+                    setJoinId('');
+                    router.replace(`/group/${id}`);
+                  }
+                } catch (err) {
+                  console.warn('Join group error', err);
+                  setJoinError('Fehler beim Beitreten zur Gruppe.');
+                } finally {
+                  setJoining(false);
+                }
+              }}
+              style={[styles.joinButton, isWeb && styles.joinButtonWeb]}
+              disabled={joining}
+            >
+              <AutoFitText
+                style={[styles.joinButtonText, isWeb && styles.joinButtonTextWeb]}
+              >
+                {joining ? '...' : 'Beitreten'}
+              </AutoFitText>
+            </Pressable>
+          </View>
+          {joinError ? (
+            <Text style={styles.joinErrorText}>{joinError}</Text>
+          ) : null}
         </View>
-        {joinError ? (
-          <Text style={styles.joinErrorText}>{joinError}</Text>
-        ) : null}
-      </View>
+      </ScrollView>
+
       <View style={styles.footer}>
         <Pressable
           onPress={toggleBackendText}
@@ -363,6 +378,16 @@ const styles = StyleSheet.create({
   rootCollapsed: {
     paddingHorizontal: 8,
     alignItems: 'stretch',
+  },
+  scrollContainer: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+  },
+  collapsedScrollContent: {
+    flexGrow: 1,
+    alignItems: 'center',
   },
   collapsedHeader: {
     width: '100%',
@@ -458,10 +483,10 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   collapsedGroupsSection: {
-    flex: 1,
     width: '100%',
     paddingHorizontal: 8,
     alignItems: 'center',
+    paddingBottom: 16,
   },
   collapsedEmpty: {
     color: '#bbb',
@@ -487,9 +512,9 @@ const styles = StyleSheet.create({
 
   // Groups section
   groupsSection: {
-    flex: 1,
     paddingHorizontal: 16,
     paddingTop: 4,
+    paddingBottom: 16,
   },
   sectionTitle: {
     fontSize: 11,
