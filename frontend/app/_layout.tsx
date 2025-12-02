@@ -121,6 +121,10 @@ export default function RootLayout() {
                   options={{ headerShown: false }}
                 />
                 <Stack.Screen
+                  name="datenschutz"
+                  options={{ headerShown: false }}
+                />
+                <Stack.Screen
                   name="modal"
                   options={{ presentation: 'modal', title: 'Modal' }}
                 />
