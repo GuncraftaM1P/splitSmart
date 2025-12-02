@@ -276,7 +276,11 @@ export async function renameGroupMember(
       body: JSON.stringify({ oldName, newName }),
     });
     const text = await res.text();
-    console.log('[API] Response:', { status: res.status, ok: res.ok, body: text });
+    console.log('[API] Response:', {
+      status: res.status,
+      ok: res.ok,
+      body: text,
+    });
 
     return { ok: res.ok, status: res.status, body: text };
   } catch (err) {

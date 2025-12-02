@@ -81,13 +81,16 @@ export async function handleRenameMember(
   groupId: string,
 ): Promise<Response> {
   const db = drizzle(env.prod_db);
-  const payload = (await request.json().catch(() => null)) as
-    | { oldName?: string; newName?: string }
-    | null;
+  const payload = (await request.json().catch(() => null)) as {
+    oldName?: string;
+    newName?: string;
+  } | null;
 
   // Debug: log received payload and groupId to help diagnose 403/handler reachability
   try {
-    console.log(`[HANDLER] handleRenameMember groupId=${groupId} payload=${JSON.stringify(payload)}`);
+    console.log(
+      `[HANDLER] handleRenameMember groupId=${groupId} payload=${JSON.stringify(payload)}`,
+    );
   } catch (e) {
     // ignore
   }

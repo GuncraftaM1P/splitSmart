@@ -188,7 +188,7 @@ export default function Sidebar({
           )}
         </View>
 
-        <ScrollView 
+        <ScrollView
           style={styles.scrollContainer}
           contentContainerStyle={styles.collapsedScrollContent}
           showsVerticalScrollIndicator={true}
@@ -256,7 +256,7 @@ export default function Sidebar({
       </View>
 
       {/* Scrollable content */}
-      <ScrollView 
+      <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={true}
@@ -353,7 +353,10 @@ export default function Sidebar({
               disabled={joining}
             >
               <AutoFitText
-                style={[styles.joinButtonText, isWeb && styles.joinButtonTextWeb]}
+                style={[
+                  styles.joinButtonText,
+                  isWeb && styles.joinButtonTextWeb,
+                ]}
               >
                 {joining ? '...' : 'Beitreten'}
               </AutoFitText>

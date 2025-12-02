@@ -24,7 +24,7 @@ export default {
   async fetch(request, env, ctx): Promise<Response> {
     // Debug: Log every incoming request
     console.log(`[INCOMING] ${request.method} ${request.url}`);
-    
+
     if (request.method === 'OPTIONS') {
       return new Response('OK', {
         headers: corsHeaders,
@@ -93,7 +93,9 @@ export default {
       const routeKey = `${request.method}:/groups/${action}`;
       // Debug: log incoming route and computed routeKey to help diagnose 403s
       try {
-        console.log(`[ROUTE] Incoming ${request.method} ${pathname} -> groupId=${groupId} action=${action} routeKey=${routeKey}`);
+        console.log(
+          `[ROUTE] Incoming ${request.method} ${pathname} -> groupId=${groupId} action=${action} routeKey=${routeKey}`,
+        );
       } catch (e) {
         // ignore logging errors in worker
       }

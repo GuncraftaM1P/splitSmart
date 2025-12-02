@@ -224,7 +224,11 @@ export default function GroupScreen() {
             >
               {/* Header row: Name + Remove button */}
               <View style={styles.memberCardHeader}>
-                <Text style={styles.memberCardName} numberOfLines={1} ellipsizeMode="tail">
+                <Text
+                  style={styles.memberCardName}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
                   {name}
                 </Text>
                 <Pressable
@@ -411,24 +415,24 @@ export default function GroupScreen() {
 
   const handleEditMemberClick = async () => {
     //Alert.alert('[DEBUG] START', `editingMember=${editingMember}, editedMemberName=${editedMemberName}`);
-    
+
     if (editingMember) {
       // Save mode
       const newName = editedMemberName.trim();
       //Alert.alert('[DEBUG] Inside if', `newName="${newName}", uuid=${uuid}, hasData=${!!data}`);
-      
+
       if (!uuid || !data) {
         //Alert.alert('[DEBUG] Missing data', 'uuid or data missing');
         setError('Fehler: Gruppe nicht geladen');
         return;
       }
-      
+
       if (newName.length === 0) {
         Alert.alert('Bitte gib einen gültigen Namen ein.');
         setError('Name darf nicht leer sein');
         return;
       }
-      
+
       if (newName === editingMember) {
         //Alert.alert('[DEBUG] Same name', 'Name unchanged, closing');
         // No change
@@ -436,16 +440,16 @@ export default function GroupScreen() {
         setEditedMemberName('');
         return;
       }
-      
+
       if (data.members.includes(newName)) {
         //Alert.alert('[DEBUG] Exists', 'Member already exists');
         setError('Mitglied mit diesem Namen existiert bereits');
         return;
       }
-      
+
       //Alert.alert('[DEBUG] Calling API', `oldName=${editingMember}, newName=${newName}`);
       setRenamingMember(editingMember);
-      
+
       try {
         const res = await renameGroupMember(uuid, editingMember, newName);
         // Show full API response AND URL in mobile Alert for debugging
@@ -751,7 +755,9 @@ export default function GroupScreen() {
             {editingMember ? (
               <View style={styles.memberEditOverlay}>
                 <View style={styles.memberEditContainer}>
-                  <Text style={styles.memberEditTitle}>Mitglied umbenennen</Text>
+                  <Text style={styles.memberEditTitle}>
+                    Mitglied umbenennen
+                  </Text>
                   <TextInput
                     style={styles.memberEditInput}
                     value={editedMemberName}
@@ -764,7 +770,10 @@ export default function GroupScreen() {
                   <View style={styles.memberEditButtonRow}>
                     <Pressable
                       onPress={handleEditMemberClick}
-                      style={[styles.memberEditButton, styles.memberEditButtonPrimary]}
+                      style={[
+                        styles.memberEditButton,
+                        styles.memberEditButtonPrimary,
+                      ]}
                       disabled={renamingMember !== null}
                     >
                       <Text style={styles.memberEditButtonText}>
@@ -776,7 +785,10 @@ export default function GroupScreen() {
                         setEditingMember(null);
                         setEditedMemberName('');
                       }}
-                      style={[styles.memberEditButton, styles.memberEditButtonSecondary]}
+                      style={[
+                        styles.memberEditButton,
+                        styles.memberEditButtonSecondary,
+                      ]}
                     >
                       <Text style={styles.memberEditButtonTextSecondary}>
                         Abbrechen
@@ -919,7 +931,10 @@ export default function GroupScreen() {
                 <View style={styles.memberEditButtonRow}>
                   <Pressable
                     onPress={handleEditMemberClick}
-                    style={[styles.memberEditButton, styles.memberEditButtonPrimary]}
+                    style={[
+                      styles.memberEditButton,
+                      styles.memberEditButtonPrimary,
+                    ]}
                     disabled={renamingMember !== null}
                   >
                     <Text style={styles.memberEditButtonText}>
@@ -931,7 +946,10 @@ export default function GroupScreen() {
                       setEditingMember(null);
                       setEditedMemberName('');
                     }}
-                    style={[styles.memberEditButton, styles.memberEditButtonSecondary]}
+                    style={[
+                      styles.memberEditButton,
+                      styles.memberEditButtonSecondary,
+                    ]}
                   >
                     <Text style={styles.memberEditButtonTextSecondary}>
                       Abbrechen
