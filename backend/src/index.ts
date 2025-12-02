@@ -5,6 +5,7 @@ import {
   handleDelete,
   handleAddMember,
   handleRemoveMember,
+  handleRenameMember,
 } from './routes/groups.js';
 import {
   handleExpensesPostUpdate,
@@ -21,6 +22,9 @@ export const corsHeaders = {
 
 export default {
   async fetch(request, env, ctx): Promise<Response> {
+    // Debug: Log every incoming request
+    console.log(`[INCOMING] ${request.method} ${request.url}`);
+    
     if (request.method === 'OPTIONS') {
       return new Response('OK', {
         headers: corsHeaders,
@@ -81,14 +85,25 @@ export default {
     const pathParts = pathname.split('/').filter((part) => part !== '');
     const groupsIndex = pathParts.indexOf('groups');
 
-    if (groupsIndex !== -1 && pathParts.length >= groupsIndex + 2) {
+    // Ensure we have at least: /groups/<id>/<action>
+    if (groupsIndex !== -1 && pathParts.length >= groupsIndex + 3) {
       const groupId = pathParts[groupsIndex + 1];
       const action = pathParts[groupsIndex + 2];
 
       const routeKey = `${request.method}:/groups/${action}`;
+      // Debug: log incoming route and computed routeKey to help diagnose 403s
+      try {
+        console.log(`[ROUTE] Incoming ${request.method} ${pathname} -> groupId=${groupId} action=${action} routeKey=${routeKey}`);
+      } catch (e) {
+        // ignore logging errors in worker
+      }
+
       const illegal: boolean = routes[routeKey] === undefined;
 
       if (illegal) {
+        try {
+          console.log(`[ROUTE] Illegal routeKey: ${routeKey}`);
+        } catch (e) {}
         return new Response('403 Forbidden', { status: 403 });
       }
 
@@ -138,6 +153,7 @@ const routes: Record<
   /* Member routes */
   'POST:/groups/add-member': handleAddMember,
   'DELETE:/groups/remove-member': handleRemoveMember,
+  'PATCH:/groups/rename-member': handleRenameMember,
 
   /* Expenses routes */
   'POST:/groups/expenses': handleExpensesPostUpdate,

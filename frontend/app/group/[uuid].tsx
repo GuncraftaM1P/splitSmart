@@ -28,6 +28,7 @@ import {
   addGroupMember,
   removeGroupMember,
 } from '@/lib/groupService';
+import { renameGroupMember } from '@/lib/groupService';
 import { loadStoredGroupIds } from '@/lib/groupService';
 
 export default function GroupScreen() {
@@ -45,6 +46,9 @@ export default function GroupScreen() {
   const [memberName, setMemberName] = useState('');
   const [addingMember, setAddingMember] = useState(false);
   const [removingMember, setRemovingMember] = useState<string | null>(null);
+  const [editingMember, setEditingMember] = useState<string | null>(null);
+  const [editedMemberName, setEditedMemberName] = useState('');
+  const [renamingMember, setRenamingMember] = useState<string | null>(null);
   const isMountedRef = useRef(true);
   const [titleWidth, setTitleWidth] = useState(0);
   const [descriptionWidth, setDescriptionWidth] = useState(0);
@@ -59,6 +63,7 @@ export default function GroupScreen() {
   // PanResponder to detect left->right swipe from left edge to open sidebar
   const isEditingNameRef = useRef(isEditingName);
   const isEditingDescriptionRef = useRef(isEditingDescription);
+  const isEditingMemberRef = useRef(editingMember);
 
   useEffect(() => {
     isEditingNameRef.current = isEditingName;
@@ -68,6 +73,10 @@ export default function GroupScreen() {
     isEditingDescriptionRef.current = isEditingDescription;
   }, [isEditingDescription]);
 
+  useEffect(() => {
+    isEditingMemberRef.current = editingMember;
+  }, [editingMember]);
+
   const panResponder = useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: (e, gs) => {
@@ -76,6 +85,7 @@ export default function GroupScreen() {
           showHamburger &&
           !isEditingNameRef.current &&
           !isEditingDescriptionRef.current &&
+          !isEditingMemberRef.current &&
           (gs.x0 ?? 0) < 30
         );
       },
@@ -85,6 +95,7 @@ export default function GroupScreen() {
           showHamburger &&
           !isEditingNameRef.current &&
           !isEditingDescriptionRef.current &&
+          !isEditingMemberRef.current &&
           Math.abs(gs.dx) > 6 &&
           Math.abs(gs.dx) > Math.abs(gs.dy) &&
           gs.dx > 6 &&
@@ -211,17 +222,36 @@ export default function GroupScreen() {
                     : null,
               ]}
             >
-              <Text style={styles.memberCardName}>{name}</Text>
-              <Text style={styles.memberBalance}>{format(bal)}</Text>
-              <Pressable
-                style={styles.removeMemberSmall}
-                onPress={() => onRemove(name)}
-                disabled={removingMember === name}
-              >
-                <Text style={styles.removeMemberSmallText}>
-                  {removingMember === name ? '…' : '✕'}
+              {/* Header row: Name + Remove button */}
+              <View style={styles.memberCardHeader}>
+                <Text style={styles.memberCardName} numberOfLines={1} ellipsizeMode="tail">
+                  {name}
                 </Text>
+                <Pressable
+                  style={styles.removeMemberSmall}
+                  onPress={() => onRemove(name)}
+                  disabled={removingMember === name}
+                >
+                  <Text style={styles.removeMemberSmallText}>
+                    {removingMember === name ? '…' : '✕'}
+                  </Text>
+                </Pressable>
+              </View>
+
+              {/* Edit button */}
+              <Pressable
+                onPress={() => {
+                  setEditingMember(name);
+                  setEditedMemberName(name);
+                }}
+                style={styles.editMemberButton}
+              >
+                <IconSymbol size={16} name="pencil" color="#666" />
+                <Text style={styles.editMemberButtonText}>Bearbeiten</Text>
               </Pressable>
+
+              {/* Balance */}
+              <Text style={styles.memberBalance}>{format(bal)}</Text>
             </View>
           );
         })}
@@ -377,6 +407,90 @@ export default function GroupScreen() {
       }
     }
     setIsEditingDescription((v) => !v);
+  };
+
+  const handleEditMemberClick = async () => {
+    //Alert.alert('[DEBUG] START', `editingMember=${editingMember}, editedMemberName=${editedMemberName}`);
+    
+    if (editingMember) {
+      // Save mode
+      const newName = editedMemberName.trim();
+      //Alert.alert('[DEBUG] Inside if', `newName="${newName}", uuid=${uuid}, hasData=${!!data}`);
+      
+      if (!uuid || !data) {
+        //Alert.alert('[DEBUG] Missing data', 'uuid or data missing');
+        setError('Fehler: Gruppe nicht geladen');
+        return;
+      }
+      
+      if (newName.length === 0) {
+        Alert.alert('Bitte gib einen gültigen Namen ein.');
+        setError('Name darf nicht leer sein');
+        return;
+      }
+      
+      if (newName === editingMember) {
+        //Alert.alert('[DEBUG] Same name', 'Name unchanged, closing');
+        // No change
+        setEditingMember(null);
+        setEditedMemberName('');
+        return;
+      }
+      
+      if (data.members.includes(newName)) {
+        //Alert.alert('[DEBUG] Exists', 'Member already exists');
+        setError('Mitglied mit diesem Namen existiert bereits');
+        return;
+      }
+      
+      //Alert.alert('[DEBUG] Calling API', `oldName=${editingMember}, newName=${newName}`);
+      setRenamingMember(editingMember);
+      
+      try {
+        const res = await renameGroupMember(uuid, editingMember, newName);
+        // Show full API response AND URL in mobile Alert for debugging
+        //Alert.alert(
+        //  'API DEBUG',
+        //  `URL Check: Open Metro logs to see the full URL\n\nStatus: ${res.status}\nOK: ${res.ok}\nBody: ${res.body}`
+        //);
+
+        setRenamingMember(null);
+
+        if (res.ok) {
+          //Alert.alert('[DEBUG] Success', 'Updating state now');
+          // optimistic update
+          setData((old) => {
+            if (!old) return old;
+            const members = old.members.map((m) =>
+              m === editingMember ? newName : m,
+            );
+            const expenses = (old.expenses || []).map((exp: any) => ({
+              ...exp,
+              paidBy: exp.paidBy === editingMember ? newName : exp.paidBy,
+              paidFor: Array.isArray(exp.paidFor)
+                ? exp.paidFor.map((p: string) =>
+                    p === editingMember ? newName : p,
+                  )
+                : exp.paidFor,
+            }));
+            return { ...old, members, expenses };
+          });
+          setEditingMember(null);
+          setEditedMemberName('');
+          setError('');
+          //Alert.alert('[DEBUG] Done', 'Modal closed');
+        } else {
+          //Alert.alert('[DEBUG] API Failed', 'Mitglied konnte nicht umbenannt werden');
+          setError('Mitglied konnte nicht umbenannt werden');
+        }
+      } catch (err) {
+        //Alert.alert('[DEBUG] Exception', String(err));
+        setRenamingMember(null);
+        setError('Fehler beim Umbenennen');
+      }
+    } else {
+      //Alert.alert('[DEBUG] Not editing', `editingMember is: ${editingMember}`);
+    }
   };
 
   const handleDeleteGroup = () => {
@@ -633,6 +747,46 @@ export default function GroupScreen() {
               </Pressable>
             </View>
 
+            {/* Member Rename Modal/Overlay */}
+            {editingMember ? (
+              <View style={styles.memberEditOverlay}>
+                <View style={styles.memberEditContainer}>
+                  <Text style={styles.memberEditTitle}>Mitglied umbenennen</Text>
+                  <TextInput
+                    style={styles.memberEditInput}
+                    value={editedMemberName}
+                    onChangeText={setEditedMemberName}
+                    placeholder="Neuer Name"
+                    placeholderTextColor="#999"
+                    autoFocus
+                    onSubmitEditing={handleEditMemberClick}
+                  />
+                  <View style={styles.memberEditButtonRow}>
+                    <Pressable
+                      onPress={handleEditMemberClick}
+                      style={[styles.memberEditButton, styles.memberEditButtonPrimary]}
+                      disabled={renamingMember !== null}
+                    >
+                      <Text style={styles.memberEditButtonText}>
+                        {renamingMember ? '…' : 'Speichern'}
+                      </Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        setEditingMember(null);
+                        setEditedMemberName('');
+                      }}
+                      style={[styles.memberEditButton, styles.memberEditButtonSecondary]}
+                    >
+                      <Text style={styles.memberEditButtonTextSecondary}>
+                        Abbrechen
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+            ) : null}
+
             {/* Balances grid */}
             <View style={styles.balancesSection}>
               <Text style={styles.membersTitle}>Teilnehmer</Text>
@@ -747,6 +901,46 @@ export default function GroupScreen() {
               </View>
             </View>
           </View>
+
+          {/* Member Rename Modal/Overlay - OUTSIDE container to avoid PanResponder interference */}
+          {editingMember ? (
+            <View style={styles.memberEditOverlay}>
+              <View style={styles.memberEditContainer}>
+                <Text style={styles.memberEditTitle}>Mitglied umbenennen</Text>
+                <TextInput
+                  style={styles.memberEditInput}
+                  value={editedMemberName}
+                  onChangeText={setEditedMemberName}
+                  placeholder="Neuer Name"
+                  placeholderTextColor="#999"
+                  autoFocus
+                  onSubmitEditing={handleEditMemberClick}
+                />
+                <View style={styles.memberEditButtonRow}>
+                  <Pressable
+                    onPress={handleEditMemberClick}
+                    style={[styles.memberEditButton, styles.memberEditButtonPrimary]}
+                    disabled={renamingMember !== null}
+                  >
+                    <Text style={styles.memberEditButtonText}>
+                      {renamingMember ? '…' : 'Speichern'}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      setEditingMember(null);
+                      setEditedMemberName('');
+                    }}
+                    style={[styles.memberEditButton, styles.memberEditButtonSecondary]}
+                  >
+                    <Text style={styles.memberEditButtonTextSecondary}>
+                      Abbrechen
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          ) : null}
         </>
       )}
     </>
@@ -985,26 +1179,45 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff1f0',
     borderColor: '#ffcccc',
   },
+  memberCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
   memberCardName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#111',
-    marginBottom: 6,
+    flex: 1,
+    marginRight: 8,
+  },
+  editMemberButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: '#f0f0f0',
+    marginBottom: 8,
+  },
+  editMemberButtonText: {
+    fontSize: 12,
+    color: '#666',
+    marginLeft: 4,
   },
   memberBalance: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '700',
     color: '#333',
   },
   removeMemberSmall: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    padding: 6,
+    padding: 4,
   },
   removeMemberSmallText: {
     color: '#999',
-    fontSize: 12,
+    fontSize: 14,
   },
   addCard: {
     alignItems: 'center',
@@ -1081,5 +1294,72 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  memberEditOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 100,
+  },
+  memberEditContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    width: '80%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  memberEditTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 16,
+    color: '#11181C',
+  },
+  memberEditInput: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    marginBottom: 16,
+    color: '#11181C',
+    backgroundColor: '#fff',
+  },
+  memberEditButtonRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  memberEditButton: {
+    flex: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  memberEditButtonPrimary: {
+    backgroundColor: '#007AFF',
+  },
+  memberEditButtonSecondary: {
+    backgroundColor: '#f0f0f0',
+  },
+  memberEditButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  memberEditButtonTextSecondary: {
+    color: '#666',
+    fontWeight: '600',
+    fontSize: 16,
   },
 });
