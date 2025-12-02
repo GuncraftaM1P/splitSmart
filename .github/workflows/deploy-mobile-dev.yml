@@ -1,0 +1,58 @@
+name: Sign & Build & Distribute Mobile
+
+on:
+  push:
+    branches: [dev, main]
+  workflow_dispatch:
+
+concurrency:
+  group: mobile-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    strategy:
+      matrix:
+        include:
+          - platform: android
+            runner: ubuntu-latest
+          - platform: ios
+            runner: macos-latest
+
+    runs-on: ${{ matrix.runner }}
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup Expo and EAS
+        uses: expo/expo-github-action@v8
+        with:
+          expo-version: latest
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: |
+          if [[ "${GITHUB_REF##*/}" == "main" ]]; then
+            export NODE_ENV=production
+          else
+            export NODE_ENV=development
+          fi
+          eas build --platform ${{ matrix.platform }} --local --non-interactive --output=./app-build
+
+      - name: Submit to EAS
+        run: eas submit --platform ${{ matrix.platform }} --non-interactive --path app-build --no-wait

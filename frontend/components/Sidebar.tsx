@@ -217,14 +217,23 @@ export default function Sidebar({
           </View>
         </ScrollView>
         <View style={styles.footerCollapsed}>
-          <Pressable
-            onPress={toggleBackendText}
-            accessibilityLabel="Toggle backend url"
-          >
-            <Text style={styles.versionText}>
-              {showBackendText ? String(backendUrl) : `v${version}`}
-            </Text>
-          </Pressable>
+          <View style={styles.versionRow}>
+            <Pressable
+              onPress={toggleBackendText}
+              accessibilityLabel="Toggle backend url"
+            >
+              <Text style={styles.versionText}>
+                {showBackendText ? String(backendUrl) : `v${version}`}
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/datenschutz' as any)}
+              accessibilityLabel="Open privacy policy"
+              style={styles.privacyPressable}
+            >
+              <Text style={styles.privacyLink}>Datenschutz</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
     );
@@ -357,14 +366,23 @@ export default function Sidebar({
       </ScrollView>
 
       <View style={styles.footer}>
-        <Pressable
-          onPress={toggleBackendText}
-          accessibilityLabel="Toggle backend url"
-        >
-          <Text style={styles.versionText}>
-            {showBackendText ? String(backendUrl) : `v${version}`}
-          </Text>
-        </Pressable>
+        <View style={styles.versionRow}>
+          <Pressable
+            onPress={toggleBackendText}
+            accessibilityLabel="Toggle backend url"
+          >
+            <Text style={styles.versionText}>
+              {showBackendText ? String(backendUrl) : `v${version}`}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => router.push('/datenschutz' as any)}
+            accessibilityLabel="Open privacy policy"
+            style={styles.privacyPressable}
+          >
+            <Text style={styles.privacyLink}>Datenschutz</Text>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
@@ -671,5 +689,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 8,
     marginLeft: 4,
+  },
+  versionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  privacyPressable: {
+    marginLeft: 8,
+  },
+  privacyLink: {
+    fontSize: 12,
+    color: '#007AFF',
   },
 });

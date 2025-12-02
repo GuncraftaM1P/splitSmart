@@ -42,3 +42,7 @@ yarn-error.*
 /android
 
 .vscode
+credentials.json
+*.aab
+*.apk
+*.ipa
