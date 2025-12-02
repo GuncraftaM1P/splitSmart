@@ -1,4 +1,4 @@
-import { Platform } from "react-native";
+import { Platform } from 'react-native';
 
 export const getBackendURL = () => {
   if (Platform.OS === 'web') {
@@ -17,4 +17,4 @@ export const getBackendURL = () => {
     }
     return 'https://dev.splitsmart.de/api/';
   }
-}
+};
