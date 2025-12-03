@@ -30,7 +30,7 @@ jobs:
         run: npm install -g wrangler@latest
 
       - name: Build web export
-        run: npx expo export --platform web
+        run: NODE_ENV=development npx expo export --platform web
 
       - name: Deploy to Cloudflare (dev)
         run: npx wrangler deploy -e dev
